@@ -1,0 +1,8 @@
+# OpenCrypto modules in dependency order (compiled into the library opencrypto by run.py)
+hdl/ocr_pkg
+hdl/ocr_aes
+hdl/ocr_ghash
+hdl/ocr_gcm
+hdl/ocr_key_table
+hdl/ocr_mib
+hdl/ocr_core

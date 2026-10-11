@@ -1,0 +1,251 @@
+# ---------------------------------------------------------------------------------------------------
+# Copyright (c) 2026 by Julian Schneider
+# Authors: Julian Schneider
+# ---------------------------------------------------------------------------------------------------
+# Register map of the OpenCrypto MIB: the single description from which tools/regmap.py generates the
+# VHDL package hdl/ocr_pkg/src/ocr_regs_pkg.vhd, the documentation hdl/ocr_mib/docs/register_map.md and
+# the C header sw/ocr_regs.h.
+#
+# Byte addresses of 32-bit registers on the AXI4-Lite port (8-bit address). Access per field:
+#   RO   read only
+#   RW   read and write
+#   W1   write one: command, reads as zero
+#   W1C  sticky flag, write one to clear
+#   WO   write only, reads as zero
+#   RC   read only, any write to the register clears it (counters)
+# A reset value written as text depends on generics; status fields have none. Counters are 32 bits
+# wide and saturate.
+
+id: 0x4F435201
+addr_bits: 8
+
+registers:
+  - name: ID
+    offset: 0x000
+    description: Identification of the core and version of the register map
+    fields:
+      - {name: ID, bits: "31:0", access: RO, reset: 0x4F435201, description: "0x4F4352 (OCR) and register map version 1"}
+
+  - name: GENERICS
+    offset: 0x004
+    description: Generics of the core (product characteristics)
+    fields:
+      - {name: DATA_BYTES, bits: "4:0", access: RO, reset: DataWidth_g / 8, description: Bytes per beat of the message streams}
+      - {name: KEY_BITS, bits: "13:5", access: RO, reset: KeyBits_g, description: "Key length: 128, 192 or 256 bits (CCSDS 3.2)"}
+      - {name: NUM_KEYS, bits: "22:14", access: RO, reset: NumKeys_g, description: Number of key slots}
+      - {name: RELEASE, bits: "23", access: RO, reset: ReleaseBuffer_g, description: "Release buffer implemented: decrypted messages leave only after the verification (GCM 7.2 step 8)"}
+      - {name: AES_UNITS, bits: "27:24", access: RO, reset: AesUnits_g, description: Round units of the AES engine}
+
+  - name: GENERICS2
+    offset: 0x008
+    description: Generics of the core (product characteristics)
+    fields:
+      - {name: GHASH_DIGIT, bits: "7:0", access: RO, reset: GhashDigit_g, description: Bits per cycle of the GHASH multiplier}
+      - {name: LEN_BITS, bits: "13:8", access: RO, reset: LenBits_g, description: "Width of the byte counts: AAD and DATA of up to 2^LEN_BITS - 1 bytes"}
+
+  - name: RELEASE_BYTES
+    offset: 0x00C
+    description: Size of the release buffer
+    fields:
+      - {name: BYTES, bits: "31:0", access: RO, reset: ReleaseBytes_g, description: "Bytes; 0 without release buffer"}
+
+  - name: CTRL
+    offset: 0x010
+    description: Commands
+    fields:
+      - {name: ZEROIZE, bits: "0", access: W1, reset: 0, description: "Erase all key slots and the key staging registers"}
+      - {name: CLEAR, bits: "1", access: W1, reset: 0, description: Clear all message counters}
+
+  - name: STATUS
+    offset: 0x014
+    description: Status of the key table
+    fields:
+      - {name: BUSY, bits: "0", access: RO, description: "Erasure after the reset, zeroize or key load in progress; contexts wait during an erasure"}
+
+  - name: EVENTS
+    offset: 0x018
+    description: Event flags (status codes of the messages, EDAC, key load)
+    fields:
+      - {name: AUTH, bits: "0", access: W1C, reset: 0, description: "A decryption failed the verification of its tag (GCM 7.2 step 8)"}
+      - {name: FORMAT, bits: "1", access: W1C, reset: 0, description: A message violated the message format}
+      - {name: KEY, bits: "2", access: W1C, reset: 0, description: A context selected a key slot out of range or not loaded}
+      - {name: IV_MODE, bits: "3", access: W1C, reset: 0, description: "A context used an IV source that its key slot does not allow (GCM 8.2)"}
+      - {name: IV_EXHAUSTED, bits: "4", access: W1C, reset: 0, description: "A context asked for an IV of an exhausted key slot (GCM 8.3)"}
+      - {name: LENGTH, bits: "5", access: W1C, reset: 0, description: A section exceeded the supported length}
+      - {name: ECC, bits: "6", access: W1C, reset: 0, description: A message failed with an uncorrectable buffer error}
+      - {name: OVERFLOW, bits: "7", access: W1C, reset: 0, description: A message was longer than the release buffer}
+      - {name: ECC_SEC, bits: "8", access: W1C, reset: 0, description: Single error corrected in a buffer or memory}
+      - {name: ECC_DED, bits: "9", access: W1C, reset: 0, description: Double error detected in a buffer or memory}
+      - {name: LOAD_DONE, bits: "10", access: W1C, reset: 0, description: A key load is complete (the slot is valid)}
+
+  - name: IRQ_EN
+    offset: 0x01C
+    description: Interrupt enable of the event flags
+    fields:
+      - {name: ENABLE, bits: "10:0", access: RW, reset: 0, description: Bit n enables EVENTS bit n}
+
+  - name: IRQ_STATUS
+    offset: 0x020
+    description: Interrupt output
+    fields:
+      - {name: IRQ, bits: "0", access: RO, description: "Irq: OR of the enabled event flags"}
+
+  - name: IV_FIXED
+    offset: 0x060
+    description: "Fixed field of the IV generation unit for the next key load (GCM 8.2.1); cleared by the load"
+    fields:
+      - {name: FIXED, bits: "31:0", access: WO, reset: 0, description: Leading 32 bits of the generated IVs}
+
+  - name: IV_COUNT_LO
+    offset: 0x064
+    description: "First invocation counter of the next key load, bits 31:0; cleared by the load"
+    fields:
+      - {name: COUNT, bits: "31:0", access: WO, reset: 0, description: Bits 31:0 of the invocation field}
+
+  - name: IV_COUNT_HI
+    offset: 0x068
+    description: "First invocation counter of the next key load, bits 63:32; cleared by the load"
+    fields:
+      - {name: COUNT, bits: "31:0", access: WO, reset: 0, description: Bits 63:32 of the invocation field}
+
+  - name: KEY_LOAD
+    offset: 0x06C
+    description: "Load of the staged key into a key slot; the load computes the hash subkey and clears the key staging registers, IV_FIXED and IV_COUNT"
+    fields:
+      - {name: START, bits: "31", access: W1, reset: 0, description: Start the load}
+      - {name: IV_GEN, bits: "8", access: WO, reset: 0, description: "'1' the slot encrypts only with generated IVs (GCM 8.2.1), '0' only with IVs of the context"}
+      - {name: SLOT, bits: "7:0", access: WO, reset: 0, description: Key slot}
+
+  - name: SLOT_QUERY
+    offset: 0x070
+    description: "Key slot of SLOT_STATUS; a write reads the slot (never its key or hash subkey)"
+    fields:
+      - {name: SLOT, bits: "7:0", access: RW, reset: 0, description: Key slot}
+
+  - name: SLOT_STATUS
+    offset: 0x074
+    description: State of the queried key slot
+    fields:
+      - {name: PENDING, bits: "4", access: RO, description: The query is not answered yet}
+      - {name: DED, bits: "3", access: RO, description: Double error in a word of the slot}
+      - {name: EXHAUSTED, bits: "2", access: RO, description: "The invocation counter has reached its last value (GCM 8.3)"}
+      - {name: IV_GEN, bits: "1", access: RO, description: The slot uses generated IVs}
+      - {name: VALID, bits: "0", access: RO, description: Key and hash subkey loaded}
+
+  - name: SLOT_FIXED
+    offset: 0x078
+    description: Fixed field of the queried key slot
+    fields:
+      - {name: FIXED, bits: "31:0", access: RO, description: Fixed field}
+
+  - name: SLOT_COUNT_LO
+    offset: 0x07C
+    description: "Next invocation counter of the queried key slot, bits 31:0 (for its backup in non-volatile memory, GCM 9.1)"
+    fields:
+      - {name: COUNT, bits: "31:0", access: RO, description: Bits 31:0}
+
+  - name: SLOT_COUNT_HI
+    offset: 0x080
+    description: Next invocation counter of the queried key slot, bits 63:32
+    fields:
+      - {name: COUNT, bits: "31:0", access: RO, description: Bits 63:32}
+
+  - name: ENCRYPTIONS
+    offset: 0x090
+    description: Encryptions with status OK
+    fields:
+      - {name: COUNT, bits: "31:0", access: RC, reset: 0, description: Messages}
+
+  - name: DECRYPTIONS
+    offset: 0x094
+    description: Decryptions with status OK (tag verified)
+    fields:
+      - {name: COUNT, bits: "31:0", access: RC, reset: 0, description: Messages}
+
+  - name: ERR_AUTH
+    offset: 0x098
+    description: "Messages with status AUTH (code 1)"
+    fields:
+      - {name: COUNT, bits: "31:0", access: RC, reset: 0, description: Messages}
+
+  - name: ERR_FORMAT
+    offset: 0x09C
+    description: "Messages with status FORMAT (code 2)"
+    fields:
+      - {name: COUNT, bits: "31:0", access: RC, reset: 0, description: Messages}
+
+  - name: ERR_KEY
+    offset: 0x0A0
+    description: "Messages with status KEY (code 3)"
+    fields:
+      - {name: COUNT, bits: "31:0", access: RC, reset: 0, description: Messages}
+
+  - name: ERR_IV_MODE
+    offset: 0x0A4
+    description: "Messages with status IV_MODE (code 4)"
+    fields:
+      - {name: COUNT, bits: "31:0", access: RC, reset: 0, description: Messages}
+
+  - name: ERR_IV_EXHAUSTED
+    offset: 0x0A8
+    description: "Messages with status IV_EXHAUSTED (code 5)"
+    fields:
+      - {name: COUNT, bits: "31:0", access: RC, reset: 0, description: Messages}
+
+  - name: ERR_LENGTH
+    offset: 0x0AC
+    description: "Messages with status LENGTH (code 6)"
+    fields:
+      - {name: COUNT, bits: "31:0", access: RC, reset: 0, description: Messages}
+
+  - name: ERR_ECC
+    offset: 0x0B0
+    description: "Messages with status ECC (code 7)"
+    fields:
+      - {name: COUNT, bits: "31:0", access: RC, reset: 0, description: Messages}
+
+  - name: ERR_OVERFLOW
+    offset: 0x0B4
+    description: "Messages with status OVERFLOW (code 8)"
+    fields:
+      - {name: COUNT, bits: "31:0", access: RC, reset: 0, description: Messages}
+
+  - name: ECC_STATUS
+    offset: 0x0C0
+    description: EDAC status of the buffers and memories
+    fields:
+      - {name: DED, bits: "17:0", access: RC, reset: 0, description: "Bit n: double error detected in channel n (0 data, 1 keystream, 2 J0, 3 hash, 4 output, 5 hash subkey, 6 descriptor, 7 summary, 8 result, 9 status FIFO, 10 release buffer, 11 key, 12 H, 13 IV memory read, 14 to 16 their scrubbers, 17 job FIFO); any write clears all counters and flags"}
+
+  - name: ECC_SELECT
+    offset: 0x0C4
+    description: Channel shown in ECC_COUNT
+    fields:
+      - {name: CHANNEL, bits: "4:0", access: RW, reset: 0, description: Channel 0 to 17}
+
+  - name: ECC_COUNT
+    offset: 0x0C8
+    description: SEC and DED counters of the selected channel
+    fields:
+      - {name: DED, bits: "31:16", access: RC, reset: 0, description: Double errors detected}
+      - {name: SEC, bits: "15:0", access: RC, reset: 0, description: Single errors corrected; any write clears the selected channel}
+
+  - name: ECC_INJECT
+    offset: 0x0CC
+    description: Error injection into the next word written to a buffer or memory (tests)
+    fields:
+      - {name: DOUBLE, bits: "9", access: W1, reset: 0, description: Inject a double error}
+      - {name: SINGLE, bits: "8", access: W1, reset: 0, description: Inject a single error}
+      - {name: TARGET, bits: "4:0", access: WO, reset: 0, description: "0 to 10 the buffers of ECC_STATUS channels 0 to 10; 16 key, 17 H, 18 IV word of the next key load; 19 next job"}
+
+arrays:
+  - name: KEY
+    base: 0x040
+    stride: 0x004
+    count: 8
+    description: "Key staging registers: KEY n holds bytes 4 n to 4 n + 3 of the key (byte 4 n in bits 31:24); 4, 6 or 8 words for 128, 192 or 256 bits; cleared by the load"
+    registers:
+      - name: KEY
+        offset: 0x000
+        description: Key word n
+        fields:
+          - {name: WORD, bits: "31:0", access: WO, reset: 0, description: Key bytes 4 n to 4 n + 3}
