@@ -2,20 +2,8 @@
 
 ## 1. Structure
 
-```text
-            job (key, H, IV, direction, error)      H, descriptor per message
- S_Job ---------------+                        +---------------------------------------------+
-                      v                        |                                             |
- S_In  ---> ocr_gcm_input ---> data FIFO --> ocr_gcm_combine --> output FIFO --> ocr_gcm_output --> [release
-            (IN-1, IN-2)     (32 entries)    (CT-1)      |                         (OU-1, OU-3)    buffer] --> M_Out
-                  |                            ^   ^      +--> hash FIFO --> ocr_ghash --+    ^  |
-                  | requests (keystream, J0)   |   |      |                  (GH-1)      v    |  +-> status FIFO ->M_Sts
-                  v                            |   |      +--> summary FIFO -----> ocr_gcm_tag --> result FIFO
-            ocr_gcm_keystream -- keystream FIFO+   |                                ^  (TG-1)
-            (AES engine,     -- J0 FIFO -----------+--------------------------------+
-             credits)        -- hash subkey register --> M_Aux
- S_Aux ---------^
-```
+![Block diagram of ocr_gcm: input, combiner, GHASH, tag and output stages with the FIFOs between them, and the AES
+engine with the keystream and J0 FIFOs](img/ocr_gcm_arch.drawio.svg)
 
 All FIFOs are `olo_ft_fifo_sync` (SECDED); the release buffer is an `olo_ft_fifo_packet`.
 
@@ -79,13 +67,7 @@ result FIFO.
 
 ## 6. Output assembly (`ocr_gcm_output`)
 
-```text
-            descriptor                 last body beat              last tag beat / verdict
- Idle_s ----------------> Iv_s -----> Body_s ---------> Tag_s (encryption) -----------> next message
-   ^   IV section flag      | last IV   |   \--------> Final_s (decryption) ----------> next message
-   |   (else Body_s)        +-----------+  rejected message: one empty beat ----------> next message
-   +---------------------------------------- no descriptor --------------------------------+
-```
+![State machine of ocr_gcm_output: Idle_s, Iv_s, Body_s, Tag_s, Final_s](img/ocr_gcm_output_fsm.drawio.svg)
 
 The stage loads one beat per cycle into its output register. An encryption emits its body beats directly and then the
 16 tag bytes (zeros on failure, D12). A decryption holds one body beat back, so that the last beat with bytes carries

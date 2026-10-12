@@ -175,23 +175,8 @@ Five properties of the standards shape the architecture more than any single fea
 
 ## 6 Architecture overview
 
-```text
-                 +--------------------------------------------------------------------------------+
- S_AxiLite <---->| MG-1 register file, MG-2 EDAC monitor                       ocr_mib            |---> Irq
-                 +----------+-----------------------------------------------------------------^----+
-                            | key load, zeroize, slot query                     counters        |
-                 +----------v--------------------+                                             |
- S_Ctx --------->| KT-1 key, H and IV memories   |   job: key, H, IV, direction, errors        |
-                 | KT-2 key load, hash subkey    |-----------------------------+               |
-                 | KT-3 context resolution       |                             |               |
-                 | KT-4 IV generation unit       |<--+ H              ocr_gcm    v               |
-                 +-------------------------------+   |   +---------------------------------------+------+
-                        ocr_key_table          aux   +---| IN-1 parser   -> data FIFO ---> CT-1 combiner |---> M_Out
- S_In ------------------------------------------------>  | IN-2 requests -> AE-1 AES -> keystream FIFO   |
-                                                         | GH-1 GHASH, TG-1 tag, OU-1 output, OU-2       |---> M_Sts
-                                                         | release buffer, OU-3 status                   |
-                                                         +-----------------------------------------------+
-```
+![Architecture overview of ocr_core: the GCM data path (IN-1, IN-2, CT-1, GH-1, TG-1, AE-1, OU-1 to OU-3), the key table
+(KT-1 to KT-4) and the register file (MG-1, MG-2)](img/ocr_core_overview.drawio.svg)
 
 The user hands over one context per message on `S_Ctx` (direction, key slot, IV or the request for a generated IV)
 and the message itself on `S_In`. The key table resolves the context: it reads the key, the hash subkey and the IV

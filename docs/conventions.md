@@ -61,8 +61,27 @@ Every module goes through the seven phases of the architecture document (section
 A module is one group of blocks of the architecture (section 7). `hdl/<module>/README.md` links the four documents
 and explains how to run the tests.
 
-Requirement IDs have the form `<GROUP>-<AREA>-<NN>`, for example `SE-IF-01`. The last column of a requirement table
+Requirement IDs have the form `<GROUP>-<AREA>-<NN>`, for example `GC-IN-02`. The last column of a requirement table
 names the clauses with their standard (`AES 5.1.3`, `GCM 6.4`, `CCSDS 3.4.2`) or `none`.
+
+## Diagrams
+
+- Every architecture document has a block diagram; state machines and data formats have one where text alone is
+  hard to follow.
+- Diagrams are draw.io drawings stored as editable SVG with the drawing embedded (`<name>.drawio.svg`) in the `img/`
+  folder next to the document. The SVG is the source: open it in draw.io to change it. It is exported with the light
+  theme on an opaque white background, so that it reads in both colour schemes of the documentation site.
+- Blocks: light blue for OpenCrypto logic, white with a blue outline for an OpenCrypto entity instantiated as a
+  whole, light grey for an Open Logic entity, drawn inside the block that instantiates it or, for a FIFO between two
+  blocks, as a small box on the connection. A dashed outline groups the blocks of one entity instance; a dashed box
+  is present for one value of a generic only (the release buffer); a stacked block is replicated (the round units of
+  the AES engine). The title carries the building block ID of the architecture (`CT-1 Combiner`), the entity follows
+  in grey.
+- Connections: thick lines for streams and buses, thin lines for single signals. Every line is horizontal or
+  vertical; a dot marks a branch, an arc marks a line that crosses another without a connection. Ports cross the
+  frame of the entity, inputs on the left, outputs on the right where the layout allows.
+- A diagram is at most about 1000 px wide, so that its text stays readable in the content column, and its alt text
+  names the blocks it shows.
 
 ## Verification
 

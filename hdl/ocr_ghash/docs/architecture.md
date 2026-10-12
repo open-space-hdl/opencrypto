@@ -2,12 +2,8 @@
 
 ## 1. Structure
 
-```text
- In_* beats --> block assembly --> block queue --> digit-serial multiplier --> output register --> Out_*
-                (X, K, byte counts,  (olo_base_pl_   (Step, Z, Y, H)             (S, byte counts,
-                 length block)        stage)          ^                            errors)
- H_* -----------------------------------------------+ hash subkey register (next message)
-```
+![Block diagram of ocr_ghash: block assembly, block queue, digit-serial multiplier, output register and the register of
+the next hash subkey](img/ocr_ghash_arch.drawio.svg)
 
 ## 2. Block assembly
 

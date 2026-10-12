@@ -2,27 +2,7 @@
 
 ## 1. Structure
 
-```text
-              In_Key, In_Block, In_Tag
-                      |
-          +-----------v------------+
-          | AddRoundKey round 0    |  StartSt  = In_Block xor w[0..3]
-          | aesKeyFirst            |  StartWin = window of round 1
-          +-----------+------------+
-                      | Start(u) for the unit at the round-robin pointer
-     +----------------+----------------+-----------------+
-     v                v                v                 v
- +--------+       +--------+       +--------+       +--------+
- | unit 0 |       | unit 1 |  ...  | unit u |  ...  | unit   |   ocr_aes_unit: State, window, round, tag
- +---+----+       +---+----+       +---+----+       | U-1    |   one round per clock cycle
-     |                |                |            +---+----+
-     +----------------+--------+-------+----------------+
-                               | Done(u): last round in this cycle (at most one unit)
-                        +------v------+
-                        | OR of the   |  output register: Out_Valid, Out_Block, Out_Tag
-                        | results     |
-                        +-------------+
-```
+![Block diagram of ocr_aes_engine: round 0, dispatch, round units and output register](img/ocr_aes_arch.drawio.svg)
 
 ## 2. Round unit (`ocr_aes_unit`)
 
