@@ -2,18 +2,8 @@
 
 ## 1. Structure
 
-```text
- S_Load ----> load state machine (KT-2) -----> write port --+---> key RAM  (valid, IV construction, key)
-                 |    ^                                     +---> H RAM    (valid, H)
-                 |    | H = CIPH_K(0^128)                   +---> IV RAM   (fixed field, invocation counter)
-                 v    |                                     |       |   (olo_ft_ram_sdp_scrub, KT-1)
-              M_Aux  S_Aux                                  |       | read port, one cycle
-                                                            |       v
- S_Ctx -----> read arbiter (query first) --------------> read address --> resolution (KT-3, KT-4) --> job FIFO --> M_Job
- S_Query ---->      |                                                          |    |                (4 entries)
-                    +-- job credits <------------------------------------------+    +--> counter + 1 (write port)
- Zeroize ---> erasure (KT-1) --> write port                                    +--> query response --> M_Query
-```
+![Block diagram of ocr_key_table: key load, erasure, read arbiter, key memories, context resolution with IV generation
+and job FIFO](img/ocr_key_table_arch.drawio.svg)
 
 | Memory | Word | Content |
 | --- | --- | --- |

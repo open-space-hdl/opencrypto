@@ -2,19 +2,8 @@
 
 ## 1. Structure
 
-```text
-                 +-----------------------------------------------------------------+
- S_AxiLite <---->| ocr_mib (MG-1, MG-2)                                            |---> Irq
-                 +--+-----------------+------------------------+----------------^--+
-                    | load, zeroize,  | ErrInj (targets 16-19)  | ErrInj (0-10)  | Evt (status), Ecc (18 channels)
-                    | query, busy     v                        v                |
-                 +--v------------------------+            +--------------------+-----------------+
- S_Ctx --------->| ocr_key_table (KT-1..4)   |--- job --->| ocr_gcm                              |---> M_Out
-                 |                           |<-- H ------| (IN, AE, CT, GH, TG, OU)             |---> M_Sts
-                 +---------------------------+   aux      |                                      |
- S_In ------------------------------------------------->  |                                      |
-                                                          +--------------------------------------+
-```
+![Block diagram of ocr_core: ocr_mib, ocr_key_table and ocr_gcm with the signal groups between
+them](img/ocr_core_arch.drawio.svg)
 
 The core contains no logic of its own: it connects the three modules and resolves the generics. `AesUnits_g` = 0
 and `GhashDigit_g` = 0 select the defaults of the width (`aesDefaultUnits`, `ghashDefaultDigit` of `ocr_pkg`), and

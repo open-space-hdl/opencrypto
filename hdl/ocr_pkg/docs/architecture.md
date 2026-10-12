@@ -24,11 +24,7 @@ fixed permutation of the 16 bytes, MixColumns four instances of the column multi
 A window holds the last Nk words of the expansion, the oldest word in the leftmost bits; its last four words are the
 round key of the next round.
 
-```text
- window (Nk words)        step: w[g + k] = w[g + k - Nk] xor temp(k)       new window
- w[g-Nk] ... w[g-1]  -->  temp(0) = w[g-1], temp(k) = w[g+k-1]       -->  w[g+4-Nk] ... w[g+3]
-                          one word at SubPos: temp = SubWord(RotWord(.)) xor Rcon, or SubWord(.)
-```
+![Key expansion window before and after one step of aesKeyStep, shown for Nk = 8](img/ocr_pkg_key_window.drawio.svg)
 
 `aesKeyStep` first chains the four words with XOR only. The one SubWord of the step adds a difference at position
 `SubPos`; because every following word XORs its predecessor, the same difference appears in all later words of the

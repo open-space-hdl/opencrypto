@@ -27,9 +27,9 @@ Closure rules:
 
 ## 2. Result
 
-Run on 2026-10-11: 278 tests (65 test cases in their configurations), all passed, 31 minutes with one simulator
-licence. Numbers are covered/total bins per file; bold marks a metric with misses. `ocr_core.vhd` and the register
-package contain no statements of their own.
+Run on 2026-10-11: 278 tests (65 test cases in their configurations), all passed, 31 minutes. Numbers are
+covered/total bins per file; bold marks a metric with misses. `ocr_core.vhd` and the register package contain no
+statements of their own.
 
 | File | Statements | Branches | FSM States | FSM Transitions | Conditions | Expressions |
 | --- | --- | --- | --- | --- | --- | --- |
