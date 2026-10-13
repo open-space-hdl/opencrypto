@@ -38,7 +38,8 @@ entity ocr_mib is
         GhashDigit_g    : positive := 64;
         LenBits_g       : positive := 32;
         ReleaseBuffer_g : boolean  := false;
-        ReleaseBytes_g  : natural  := 0
+        ReleaseBytes_g  : natural  := 0;
+        DenseOutput_g   : boolean  := false
     );
     port (
         -- Control
@@ -369,6 +370,7 @@ begin
                 Rd_v(GenericsNumKeysHi_c downto GenericsNumKeysLo_c)     := std_logic_vector(to_unsigned(NumKeys_g, 9));
                 Rd_v(GenericsRelease_c)                                  := toSl(ReleaseBuffer_g);
                 Rd_v(GenericsAesUnitsHi_c downto GenericsAesUnitsLo_c)   := std_logic_vector(to_unsigned(AesUnits_g, 4));
+                Rd_v(GenericsDense_c)                                    := toSl(DenseOutput_g);
             when RegGenerics2_c =>
                 Rd_v(Generics2GhashDigitHi_c downto Generics2GhashDigitLo_c) := std_logic_vector(to_unsigned(GhashDigit_g, 8));
                 Rd_v(Generics2LenBitsHi_c downto Generics2LenBitsLo_c)       := std_logic_vector(to_unsigned(LenBits_g, 6));

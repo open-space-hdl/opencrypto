@@ -24,13 +24,15 @@ The core is at **TRL 3**: fully verified by simulation, not yet tested on hardwa
 | `ocr_gcm` | IN-1, IN-2, CT-1, TG-1, OU-1 to OU-3 (GCM data path) | Done |
 | `ocr_key_table` | KT-1 to KT-4 (key table, IV generation unit) | Done |
 | `ocr_mib` | MG-1, MG-2 (register file, EDAC monitor) | Done |
+| `ocr_packer` | OU-4 (output packer of the dense output) | Done |
 | `ocr_core` | Core top level | Done |
+| `ocr_framer` | FR-1 (framer: chunks with their position, contexts) | Done |
 
 ## Open items
 
 | Item | State |
 | --- | --- |
-| Synthesis on a target device: resources and timing | Open; `lint/synth_check.py` checks the synthesizability of four core configurations with GHDL |
+| Synthesis on a target device: resources and timing | Open; `lint/synth_check.py` checks the synthesizability of six core and two framer configurations with GHDL |
 | Hardware test against an independent AES-GCM implementation | Open |
 | Code coverage with QuestaSim | Done: [coverage.md](coverage.md) |
 | IV lengths other than 96 bits (GCM 5.2.1.1) | Not planned: 96-bit IVs are the recommended length and the only length of the deterministic construction with a 32-bit fixed field |

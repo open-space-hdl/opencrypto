@@ -12,7 +12,10 @@
 -- message. Random cycles without valid; lanes without byte enable carry random data. Counts the
 -- cycles in which it presents a beat that the receiver does not accept (gaps). A section code in lower
 -- case sends the section with byte enables that are not contiguous from lane 0 in its last beat
--- (format error tests).
+-- (format error tests). Out_Err is '1' on the last beat of a message whose expected status is not OK
+-- (output packer bench). With Plain_g the source sends packets for the framer: the bytes of the
+-- messages without section code, TLast only on the last beat of a message with the flag FlagImgEnd_c,
+-- so that the messages of one packet (its chunks) form one stream packet.
 --
 -- What this model does NOT check or reproduce: it does not check the handshake of the receiver beyond
 -- waiting for ready; it sends the sections of the vector file as they are, so malformed messages come
@@ -40,7 +43,8 @@ entity ocr_tb_msg_source is
         Set_g       : natural  := 0;
         Channel_g   : natural  := ChSource_c;
         DataWidth_g : positive := 32;
-        Seed_g      : positive := 1
+        Seed_g      : positive := 1;
+        Plain_g     : boolean  := false
     );
     port (
         Clk       : in    std_logic;
@@ -49,7 +53,8 @@ entity ocr_tb_msg_source is
         Out_Data  : out   std_logic_vector(DataWidth_g - 1 downto 0);
         Out_Keep  : out   std_logic_vector(DataWidth_g / 8 - 1 downto 0);
         Out_Last  : out   std_logic;
-        Out_User  : out   std_logic_vector(1 downto 0)
+        Out_User  : out   std_logic_vector(1 downto 0);
+        Out_Err   : out   std_logic
     );
 end entity;
 
@@ -90,6 +95,7 @@ begin
         Out_Data  <= (others => '0');
         Out_Keep  <= (others => '0');
         Out_User  <= (others => '0');
+        Out_Err   <= '0';
         wait until rising_edge(Clk);
 
         loop
@@ -140,12 +146,24 @@ begin
 
                             Out_Keep(0) <= '0';
                         end if;
+                        Out_Err <= '0';
                         if s = NSec_v - 1 and b = Beats_v - 1 then
-                            Out_Last <= '1';
+                            if not Plain_g or tbFlag(OcrVec_v.msgFlags(Set_g, M_v), FlagImgEnd_c) then
+                                Out_Last <= '1';
+                            else
+                                Out_Last <= '0';
+                            end if;
+                            if OcrVec_v.stsCode(Set_g, M_v) /= 0 then
+                                Out_Err <= '1';
+                            end if;
                         else
                             Out_Last <= '0';
                         end if;
-                        Out_User  <= secCode(OcrVec_v.inCode(Set_g, M_v, s));
+                        if Plain_g then
+                            Out_User <= "00";
+                        else
+                            Out_User <= secCode(OcrVec_v.inCode(Set_g, M_v, s));
+                        end if;
                         Out_Valid <= '1';
 
                         loop

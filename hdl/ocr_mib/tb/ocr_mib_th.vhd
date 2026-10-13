@@ -116,7 +116,8 @@ begin
             GhashDigit_g    => 128,
             LenBits_g       => 20,
             ReleaseBuffer_g => true,
-            ReleaseBytes_g  => 2048
+            ReleaseBytes_g  => 2048,
+            DenseOutput_g   => true
         )
         port map (
             Clk               => Clk_i,

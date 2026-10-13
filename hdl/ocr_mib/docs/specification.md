@@ -14,7 +14,7 @@ is generated from `hdl/ocr_mib/regs/ocr_regs.yml` ([register map](register_map.m
 | ID | Requirement | Clauses |
 | --- | --- | --- |
 | MG-IF-01 | The register file shall be an AXI4-Lite slave with 8-bit byte addresses and 32-bit registers as in the register map; addresses without a register shall read as zero and ignore writes. | none (architecture section 7.5) |
-| MG-IF-02 | The identification register and the generics registers shall report the register map version, the data width, the key length, the number of key slots, the release buffer and its size, the number of AES units, the GHASH digit and the width of the byte counts. | CCSDS 3.2 |
+| MG-IF-02 | The identification register and the generics registers shall report the register map version, the data width, the key length, the number of key slots, the release buffer and its size, the dense output, the number of AES units, the GHASH digit and the width of the byte counts. | CCSDS 3.2 |
 | MG-IF-03 | After the reset every register shall hold its reset value of the register map. | none (D13) |
 
 ### 2.2 Key material
@@ -61,3 +61,4 @@ is generated from `hdl/ocr_mib/regs/ocr_regs.yml` ([register map](register_map.m
 | `LenBits_g` | 32 | 8 to 32 | Width of the byte counts (GENERICS2) |
 | `ReleaseBuffer_g` | false | | Release buffer implemented (GENERICS) |
 | `ReleaseBytes_g` | 0 | ≥ 0 | Size of the release buffer (RELEASE_BYTES) |
+| `DenseOutput_g` | false | | Dense output of the core (GENERICS) |

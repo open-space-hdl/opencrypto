@@ -35,6 +35,7 @@ registers:
       - {name: NUM_KEYS, bits: "22:14", access: RO, reset: NumKeys_g, description: Number of key slots}
       - {name: RELEASE, bits: "23", access: RO, reset: ReleaseBuffer_g, description: "Release buffer implemented: decrypted messages leave only after the verification (GCM 7.2 step 8)"}
       - {name: AES_UNITS, bits: "27:24", access: RO, reset: AesUnits_g, description: Round units of the AES engine}
+      - {name: DENSE, bits: "28", access: RO, reset: DenseOutput_g, description: "Dense output: the output messages are gapless byte streams"}
 
   - name: GENERICS2
     offset: 0x008

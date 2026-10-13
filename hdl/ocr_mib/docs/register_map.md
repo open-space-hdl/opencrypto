@@ -72,6 +72,7 @@ Address 0x004: Generics of the core (product characteristics).
 
 | Bits | Field | Access | Reset | Description |
 | --- | --- | --- | --- | --- |
+| 28 | DENSE | RO | DenseOutput_g | Dense output: the output messages are gapless byte streams |
 | 27:24 | AES_UNITS | RO | AesUnits_g | Round units of the AES engine |
 | 23 | RELEASE | RO | ReleaseBuffer_g | Release buffer implemented: decrypted messages leave only after the verification (GCM 7.2 step 8) |
 | 22:14 | NUM_KEYS | RO | NumKeys_g | Number of key slots |

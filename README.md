@@ -9,8 +9,11 @@ GCM-AE, GCM-AD and GMAC functions of NIST SP 800-38D with the algorithm selectio
 bits with back-pressure everywhere and one beat per clock cycle; every message selects its direction, its key slot and
 its IV. A key table holds the keys, computes their hash subkeys and generates IVs with the deterministic construction
 of SP 800-38D 8.2.1; keys enter through write-only registers and can never be read back. An optional release buffer
-delivers a decrypted message only after its tag was verified. All buffers and memories use the fault-tolerant
-entities of [Open Logic](https://github.com/open-logic/open-logic) (SECDED ECC, scrubbing).
+delivers a decrypted message only after its tag was verified, and an optional dense output delivers every message as
+one gapless byte string. The framer `ocr_framer` in front of the core encrypts packets of any length, for example
+compressed images, in self-contained chunks of bounded size with the chunk position as authenticated data. All buffers
+and memories use the fault-tolerant entities of [Open Logic](https://github.com/open-logic/open-logic) (SECDED ECC,
+scrubbing).
 
 ## Status
 
@@ -18,9 +21,10 @@ entities of [Open Logic](https://github.com/open-logic/open-logic) (SECDED ECC, 
 and has no flight heritage; see [what the levels mean](https://openspacehdl.org/trl/) and the next steps in the
 [roadmap](docs/roadmap.md#technology-readiness).
 
-The core is complete and verified in simulation (GHDL and QuestaSim, 65 test cases at unit and core level in 278 test
-runs over stream widths of 16 to 128 bits and all three key lengths; code coverage closed, the remaining misses
-justified in [docs/coverage.md](docs/coverage.md)). Every output byte is compared with the AES and AES-GCM
+The core is complete and verified in simulation (GHDL and QuestaSim, 76 test cases at unit and core level in 348 test
+runs over stream widths of 16 to 128 bits and all three key lengths, with the sectioned and the dense output and with
+the framer in front of the core; code coverage closed, the remaining misses justified in
+[docs/coverage.md](docs/coverage.md)). Every output byte is compared with the AES and AES-GCM
 implementation of pycryptodome, which first reproduces the examples of FIPS 197 and the test cases of the GCM
 specification. The [compliance matrix](docs/compliance.md) traces every clause of FIPS 197, SP 800-38D and the AES-GCM
 clauses of CCSDS 352.0-B-2 in scope to its requirements and test cases. Two cores in series decrypt what the first one
@@ -86,7 +90,7 @@ Checks besides the regression:
 
 ```shell
 python lint/lint.py                 # VSG, no errors and no warnings
-python lint/synth_check.py          # synthesizability of four core configurations with GHDL
+python lint/synth_check.py          # synthesizability of the core and the framer with GHDL
 python tools/compliance.py --check  # every clause and requirement traced to a test case
 python tools/regmap.py --check      # generated register map files match hdl/ocr_mib/regs/ocr_regs.yml
 python -m mkdocs build -f tools/docs/mkdocs.yml  # documentation website, fails on broken links

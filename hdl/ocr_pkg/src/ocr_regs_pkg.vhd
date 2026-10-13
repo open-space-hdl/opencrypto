@@ -87,6 +87,7 @@ package ocr_regs_pkg is
     constant GenericsRelease_c     : natural := 23;
     constant GenericsAesUnitsLo_c  : natural := 24;
     constant GenericsAesUnitsHi_c  : natural := 27;
+    constant GenericsDense_c       : natural := 28;
 
     constant Generics2GhashDigitLo_c : natural := 0;
     constant Generics2GhashDigitHi_c : natural := 7;

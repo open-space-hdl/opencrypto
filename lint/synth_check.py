@@ -3,8 +3,10 @@
 # Authors: Julian Schneider
 # ---------------------------------------------------------------------------------------------------
 """Synthesis check of OpenCrypto with GHDL: elaborates ocr_core in the default configuration (32 bits, AES-256, four
-key slots), at 128 bits with 16 key slots and the release buffer, at 16 bits with AES-128 and one key slot, and at
-64 bits with AES-192, eight key slots, the minimum numbers of AES units and GHASH digit and 16-bit byte counts.
+key slots), at 128 bits with 16 key slots and the release buffer, at 16 bits with AES-128 and one key slot, at 64 bits
+with AES-192, eight key slots, the minimum numbers of AES units and GHASH digit and 16-bit byte counts, and with the
+dense output at 64 and 128 bits (the latter with the release buffer); and ocr_framer in its default configuration
+(32 bits, chunks of 4096 bytes) and at 128 bits with chunks of 1024 bytes and a buffer of four chunks.
 
 Usage: python lint/synth_check.py
 Uses the libraries compiled by the regression runner (run `python run.py --compile` first).
@@ -25,7 +27,13 @@ CONFIGS = [("ocr_core", {}),
                          "ReleaseBytes_g": "8192"}),
            ("ocr_core", {"DataWidth_g": "16", "KeyBits_g": "128", "NumKeys_g": "1"}),
            ("ocr_core", {"DataWidth_g": "64", "KeyBits_g": "192", "NumKeys_g": "8", "AesUnits_g": "6",
-                         "GhashDigit_g": "64", "LenBits_g": "16"})]
+                         "GhashDigit_g": "64", "LenBits_g": "16"}),
+           ("ocr_core", {"DataWidth_g": "64", "DenseOutput_g": "true"}),
+           ("ocr_core", {"DataWidth_g": "128", "DenseOutput_g": "true", "ReleaseBuffer_g": "true",
+                         "ReleaseBytes_g": "4096"}),
+           ("ocr_framer", {}),
+           ("ocr_framer", {"DataWidth_g": "128", "NumKeys_g": "16", "ChunkBytes_g": "1024",
+                           "BufferChunks_g": "4"})]
 
 
 def synth(top, generics, out_dir):

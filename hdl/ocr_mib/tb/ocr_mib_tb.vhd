@@ -196,6 +196,7 @@ begin
             D_v(GenericsNumKeysHi_c downto GenericsNumKeysLo_c)         := std_logic_vector(to_unsigned(4, 9));
             D_v(GenericsRelease_c)                                      := '1';
             D_v(GenericsAesUnitsHi_c downto GenericsAesUnitsLo_c)       := std_logic_vector(to_unsigned(10, 4));
+            D_v(GenericsDense_c)                                        := '1';
             chk(RegGenerics_c, D_v, "GENERICS");
             D_v                                                         := (others => '0');
             D_v(Generics2GhashDigitHi_c downto Generics2GhashDigitLo_c) := std_logic_vector(to_unsigned(128, 8));

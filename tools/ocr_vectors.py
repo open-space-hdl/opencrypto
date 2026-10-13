@@ -38,6 +38,10 @@ OK, AUTH, FORMAT, KEY, IV_MODE, IV_EXHAUSTED, LENGTH, ECC, OVERFLOW = range(9)
 FLAG_ERRINJ_SEC = 0x1   # inject a single bit error into a buffer while the message passes
 FLAG_ERRINJ_DED = 0x2   # inject a double bit error
 FLAG_ABORT = 0x4        # the source stops the message (reset tests)
+FLAG_IMG_END = 0x40     # framer benches: the message is the last chunk of its input packet (TLast on its last beat)
+
+# Chunk positions of the framer (CCSDS sequence flag encoding), bits 7:6 of the first AAD byte
+POS_MIDDLE, POS_FIRST, POS_LAST, POS_SINGLE = 0, 1, 2, 3
 
 # FIPS 197 Appendix C: (key, plaintext, ciphertext); Appendix B: cipher example
 FIPS197_ECB = [
@@ -696,6 +700,114 @@ def ecc_set(path, key_bits, seed, release=False):
                     vf.encrypt(0, aad, data, iv=iv, flags=flags)
                 if ded and buf != "rel":
                     vf.override_last(ECC, zero_tag=not dec and buf != "sts")
+    return vf.write()
+
+
+def packer_set(path, count, seed, max_len=70):
+    """Sectioned output messages for the output packer: the sections of an output message of the core (IV, AAD, DATA,
+    TAG, each optional, in this order), with the boundary cases first: one byte, a message without any byte, the
+    lengths of the core outputs, empty sections between sections with bytes. The expected output sections are the
+    input sections; 20 % of the messages carry the error flag (status AUTH)."""
+    rng = random.Random(seed)
+    vf = VectorFile(path)
+    special = [
+        [("D", 1)], [("D", 0)], [("I", 12), ("A", 5), ("D", 17), ("T", 16)], [("I", 12), ("T", 16)],
+        [("A", 3), ("T", 16)], [("A", 0), ("D", 9)], [("D", 16), ("T", 16)], [("A", 15), ("D", 1), ("T", 16)],
+        [("I", 12), ("A", 4), ("D", 64), ("T", 16)], [("A", 7)], [("I", 12), ("A", 1), ("D", 0), ("T", 16)],
+        [("A", 1), ("D", 1), ("T", 1)],
+    ]
+    for i in range(count):
+        if i < len(special):
+            secs = special[i]
+        else:
+            secs = []
+            for code in "IADT":
+                if rng.random() < (0.4 if code == "I" else 0.7):
+                    n = {"I": 12, "T": 16}.get(code, rng.randint(0, max_len)) if rng.random() < 0.7 else \
+                        rng.randint(0, max_len)
+                    secs.append((code, n))
+            # A beat without byte is the only beat of a message, or the first beat of a section between others (the
+            # output assembly never ends a message with bytes by an empty beat)
+            while len(secs) > 1 and secs[-1][1] == 0:
+                secs.pop()
+            if not secs:
+                secs = [("D", rng.randint(0, max_len))]
+        err = i >= len(special) and rng.random() < 0.2 or i == 1
+        vf._msg(0, 0, False, bytes(12), 0)
+        data = [(code, rand_bytes(rng, n)) for code, n in secs]
+        for code, d in data:
+            vf.lines.append(f"IN {code} {hx(d)}")
+        for code, d in data:
+            vf.lines.append(f"OUT {code} {hx(d)}")
+        vf.lines.append(f"STS {AUTH if err else OK} 0 0 {bytes(12).hex()}")
+        vf.lines.append("END")
+        vf.count += 1
+    return vf.write()
+
+
+def image_lengths(rng, chunk_bytes, count, max_chunks=3):
+    """Lengths of the input packets of the framer: the boundary cases first (empty, one byte, one byte less, exactly,
+    one byte more than a chunk, exactly two and three chunks, two chunks and three bytes), then random lengths up to
+    max_chunks chunks."""
+    c = chunk_bytes
+    special = [0, 1, c - 1, c, c + 1, 2 * c, 2 * c + 3, 3 * c, 15, 16, 17]
+    result = special[:count]
+    while len(result) < count:
+        result.append(rng.randint(1, max_chunks * c))
+    return result
+
+
+def chunk_position(index, chunks):
+    """Position of chunk index of a packet of chunks chunks."""
+    if chunks == 1:
+        return POS_SINGLE
+    if index == 0:
+        return POS_FIRST
+    if index == chunks - 1:
+        return POS_LAST
+    return POS_MIDDLE
+
+
+def framer_set(path, key_bits, chunk_bytes, lengths, seed, core, poisoned=(), slot=0):
+    """Input packets of the framer, one message per chunk: the chunk as input DATA section, FLAG_IMG_END on the last
+    chunk of a packet. core=False (framer alone): the expected output is the AAD section with the chunk position and
+    the chunk as DATA section. core=True (framer and ocr_core with the dense output): the expected output is the
+    encryption with the next generated IV of the slot: IV, AAD, ciphertext and tag. The chunks of poisoned (indices
+    of the messages) carry an injected double error: the content is not checked, the message fails with FORMAT (the
+    IV is still consumed)."""
+    rng = random.Random(seed)
+    vf = VectorFile(path)
+    vf.key(slot, rand_bytes(rng, key_bits // 8), ivgen=True, fixed=rng.getrandbits(32), counter=rng.getrandbits(40))
+    s = vf.slots[slot]
+    m = 0
+    for length in lengths:
+        image = rand_bytes(rng, length)
+        chunks = max(1, (length + chunk_bytes - 1) // chunk_bytes)
+        for k in range(chunks):
+            chunk = image[k * chunk_bytes:(k + 1) * chunk_bytes]
+            aad = bytes([chunk_position(k, chunks) << 6, 0, 0, 0])
+            flags = FLAG_IMG_END if k == chunks - 1 else 0
+            vf._msg(0, slot, True, bytes(12), flags)
+            vf.lines.append(f"IN D {hx(chunk)}")
+            iv = s.next_iv() if core else bytes(12)
+            if m in poisoned:
+                vf.lines.append("OUT X -")
+                vf.lines.append(f"STS {FORMAT} 0 0 {iv.hex()}")
+            elif core:
+                c, t = gcm_encrypt(s.key, iv, aad, chunk)
+                vf.lines.append(f"OUT I {iv.hex()}")
+                vf.lines.append(f"OUT A {aad.hex()}")
+                if c:
+                    vf.lines.append(f"OUT D {c.hex()}")
+                vf.lines.append(f"OUT T {t.hex()}")
+                vf.lines.append(f"STS {OK} 4 {len(chunk)} {iv.hex()}")
+            else:
+                vf.lines.append(f"OUT A {aad.hex()}")
+                vf.lines.append(f"OUT D {hx(chunk)}")
+                vf.lines.append(f"STS {OK} 4 {len(chunk)} {iv.hex()}")
+            vf.lines.append("END")
+            vf.count += 1
+            m += 1
     return vf.write()
 
 

@@ -46,6 +46,7 @@ package ocr_tb_vec_pkg is
     constant FlagJobErr_c    : natural := 8;
     constant FlagOutOk_c     : natural := 16; -- the output is OK although the status is not (status FIFO error)
     constant FlagOutErr_c    : natural := 32; -- the output ends with the error flag although the status is OK
+    constant FlagImgEnd_c    : natural := 64; -- framer benches: last chunk of an input packet (TLast)
 
     -- Bytes of a section, first byte at the lowest index
     type TbBytes_t is array (natural range <>) of std_logic_vector(7 downto 0);

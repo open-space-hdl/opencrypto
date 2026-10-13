@@ -19,6 +19,13 @@ CONFIGS = {
     "w32_k256_n4_rel": (32, 256, 4, {"ReleaseBuffer_g": True, "ReleaseBytes_g": 512},
                         ["test_registers", "test_messages", "test_throughput_decrypt"]),
     "w64_k256_n4_series": (64, 256, 4, {"Series_g": True}, ["test_series"]),
+    # Dense output
+    "w32_k256_n4_dense": (32, 256, 4, {"DenseOutput_g": True},
+                          SUBSET + ["test_ecc", "test_reset"]),
+    "w128_k256_n4_dense": (128, 256, 4, {"DenseOutput_g": True}, SUBSET + ["test_reset"]),
+    "w16_k128_n2_dense": (16, 128, 2, {"DenseOutput_g": True}, SUBSET),
+    "w64_k192_n8_dense_rel": (64, 192, 8, {"DenseOutput_g": True, "ReleaseBuffer_g": True, "ReleaseBytes_g": 512},
+                              ["test_registers", "test_messages", "test_throughput_decrypt"]),
 }
 
 
