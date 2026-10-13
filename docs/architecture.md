@@ -23,6 +23,9 @@ built from.
 - An IV generation unit per key slot with the deterministic construction (GCM 8.2.1), the enforcement of one IV
   construction per key (GCM 8.2) and the limit of the number of invocations (GCM 8.3).
 - An optional release buffer that delivers a decrypted message only after its tag was verified (GCM 7.2 step 8).
+- An optional dense output that delivers every output message as one gapless byte string.
+- A framer in front of the core that cuts packets of any length (for example compressed images) into chunks of
+  bounded size and encrypts every chunk as one message, with the position of the chunk in its packet as AAD.
 - Streams with back-pressure everywhere, data widths of 16, 32, 64 and 128 bits and one beat per clock cycle;
   management, counters and product information behind an AXI4-Lite port; fault tolerance; the verification
   architecture.
@@ -38,7 +41,8 @@ built from.
 - The other algorithms of CCSDS 352.0-B-2: HMAC (CCSDS 4.2), CMAC (CCSDS 4.3.1) and digital signatures (CCSDS 4.4).
 - Security protocols that use AES-GCM, for example the Space Data Link Security Protocol (CCSDS 355.0-B-2): the
   framing of security headers and trailers belongs to the protocol layer. The message format of section 6 is chosen so
-  that such a layer maps its frames onto it without buffering.
+  that such a layer maps its frames onto it without buffering. The framer (FR-1) is no such protocol: it only bounds
+  the size of the messages of a stream and marks the position of each chunk.
 
 ### Target technology
 
@@ -49,7 +53,7 @@ are AXI4-Stream and the management interface is AXI4-Lite. The core runs on any 
 
 OpenCrypto is an open AES-GCM implementation that is based on the Open Logic VHDL Library. The code lives in
 [open-space-hdl/opencrypto](https://github.com/open-space-hdl/opencrypto) under the PSI HDL Library License, Version
-1.0, the licence of Open Logic. Open Logic is pinned to the tag `4.7.0-ft.2` of the branch `fault-tolerant` of
+1.0, the licence of Open Logic. Open Logic is pinned to the tag `4.7.0-ft.3` of the branch `fault-tolerant` of
 open-space-hdl/open-logic-ft, the fault-tolerant fork of Open Logic.
 
 ### References
@@ -60,7 +64,7 @@ open-space-hdl/open-logic-ft, the fault-tolerant fork of Open Logic.
 | \[GCM\] | NIST SP 800-38D, Recommendation for Block Cipher Modes of Operation: Galois/Counter Mode (GCM) and GMAC | November 2007 |
 | \[CCSDS\] | CCSDS 352.0-B-2, CCSDS Cryptographic Algorithms, Recommended Standard, Issue 2 | August 2019 |
 | \[SDLS\] | CCSDS 355.0-B-2, Space Data Link Security Protocol (informative: use of AES-GCM on space links) | July 2022 |
-| \[OLO\] | [Open Logic, fault-tolerant fork, branch fault-tolerant](https://github.com/open-space-hdl/open-logic-ft/tree/fault-tolerant) | 4.7.0-ft.2 |
+| \[OLO\] | [Open Logic, fault-tolerant fork, branch fault-tolerant](https://github.com/open-space-hdl/open-logic-ft/tree/fault-tolerant) | 4.7.0-ft.3 |
 
 ### Conventions
 
@@ -212,6 +216,24 @@ as AAD (with the IV field masked, as SDLS 4.2.2.6 does), the frame data as DATA,
 the core generates the IV, the IV section arrives in front of the AAD of the output, so the layer can insert it into
 the frame header before it sends the header.
 
+### Dense output
+
+With `DenseOutput_g` the output packer (OU-4) removes the gaps that the sections leave at their ends: every output
+message is one gapless byte string IV ‖ AAD ‖ DATA ‖ TAG (the sections that the message has), all bytes of a beat
+are valid except in the last beat of the message, and `M_Out_User(1:0)` is the section of the first byte of the
+beat. A consumer that takes the message as a byte string, for example a packet service, receives it without
+reassembly. The section boundaries follow from the lengths: IV 12 bytes, TAG 16 bytes, AAD and DATA bytes in the
+status.
+
+### Framer
+
+The framer (FR-1, `ocr_framer`) feeds the core with the chunks of packets of any length. Every chunk of up to
+`ChunkBytes_g` bytes is one message: a 4-byte AAD section with the position of the chunk in its packet (bits 7:6 of
+the first byte, in the encoding of the CCSDS sequence flags: "01" first, "00" middle, "10" last, "11" the only
+chunk), then the chunk as DATA section, with one context per chunk for an encryption with a generated IV. With the
+dense output a chunk leaves as IV (12 bytes) ‖ position (4 bytes) ‖ ciphertext ‖ tag (16 bytes); IV and position
+fill exactly one 128-bit block, so the ciphertext starts on a beat boundary at every data width.
+
 ### Context and status
 
 `S_Ctx` (valid / ready, one transfer per message, in the order of the messages):
@@ -255,12 +277,15 @@ the IV that was used, and the numbers of AAD and DATA bytes. Codes in order of p
 | D11 | One status per message with one code; the code of the highest precedence wins; every code is counted in the register file | Deterministic and testable error reporting |
 | D12 | A failed encryption emits the TAG section as zeros; a message that its context rejects is consumed and replaced by one empty output beat | A failed encryption can never carry a valid tag; message boundaries are kept for the consumer |
 | D13 | The protocol state machines have a defined recovery state, without TMR: the `when others` branch leads to it from an illegal state, and the reset restarts the core from any state | Same as the other Open Space HDL cores; registers of the control paths are protected by the TMR of the synthesis tool where the mission requires it |
+| D14 | Optional dense output (`DenseOutput_g`): an output packer behind the output assembly (and the release buffer) closes the gaps at the section ends; it shifts the bytes by the residual of the previous beats, one rotation per beat | A packet service or a memory interface takes the message as a byte string without gaps; the gaps arise only at section ends, so a small packer suffices, not a general byte compactor; the sectioned format stays the default for two cores in series |
+| D15 | Framer in front of the core (`ocr_framer`): chunks of `ChunkBytes_g` bytes, each one GCM message with a generated IV and the 4-byte chunk position as AAD; store and forward of every chunk in an FT buffer, because the position "last" is known only at the end of a chunk and the AAD precedes the DATA | Long streams (compressed images) are encrypted in self-contained messages of bounded size: buffers of a few chunks instead of whole images, one packet per chunk below the size limits of the packet services, a lost chunk costs only that chunk; the IV counter numbers the chunks and the authenticated position marks the packet boundaries for the receiver. The chunker is the general entity `olo_base_chunker`; the position and the contexts stay outside the cryptographic core |
 
 ### Clock and reset
 
 All blocks run in `Clk`. The reset input `Rst` is synchronous and high-active (Open Logic convention); the integrator
-synchronises it to `Clk`, for example with `olo_ft_reset_gen`. After the reset the key table erases all slots
-(`NumKeys_g` clock cycles); contexts are resolved after the erasure, so a message that arrives meanwhile waits.
+synchronises it to `Clk`, for example with `olo_base_reset_gen` with `SyncTmr_g` = true (triplicated synchroniser).
+After the reset the key table erases all slots (`NumKeys_g` clock cycles); contexts are resolved after the erasure, so
+a message that arrives meanwhile waits.
 
 ### Single event effects
 
@@ -292,8 +317,8 @@ the core (D13), and a receiver always verifies the tag.
 
 ## 7 Building block specifications
 
-The core has 16 building blocks in six groups. Each block lists its responsibility, the Open Logic entities it is
-built from and the clauses it owns (P1: no clause is owned twice).
+The core has 17 building blocks in six groups, and the framer is one more block in front of it. Each block lists its
+responsibility, the Open Logic entities it is built from and the clauses it owns (P1: no clause is owned twice).
 
 ### 7.1 AES engine
 
@@ -312,6 +337,7 @@ built from and the clauses it owns (P1: no clause is owned twice).
 | OU-1 | Output assembly | IV section of a generated IV, AAD and data beats, TAG section of an encryption (zeros on failure), held last beat and error flag of a decryption, empty beat of a rejected message | `olo_ft_fifo_sync` (output FIFO) | none (format of section 6) |
 | OU-2 | Release buffer | Optional store-and-forward of the output messages, drops messages whose status is not OK and messages longer than the buffer | `olo_ft_fifo_packet` | none (GCM 7.2 step 8 through TG-1) |
 | OU-3 | Status | One status per message: code, direction, slot, IV, AAD and DATA bytes | `olo_ft_fifo_sync` | none |
+| OU-4 | Output packer | Optional (`DenseOutput_g`): closes the gaps at the section ends of the output messages, the section code of the first byte of every beat, the error flag on the last beat | none | none (D14) |
 
 ### 7.3 GHASH
 
@@ -341,6 +367,12 @@ built from and the clauses it owns (P1: no clause is owned twice).
 | --- | --- | --- | --- | --- |
 | CM-1 | Package | AES transformations (S-box, ShiftRows, MixColumns, key expansion step), GF(2<sup>8</sup>) and GF(2<sup>128</sup>) arithmetic, byte order of blocks and beats, section and status codes | none | AES 4, 5.1.1 to 5.1.3; GCM 6.3 |
 
+### 7.7 Framer
+
+| ID | Block | Responsibility | Open Logic | Clauses |
+| --- | --- | --- | --- | --- |
+| FR-1 | Framer | Cuts the packets of a stream into chunks, buffers every chunk completely, sends the AAD with the chunk position and the chunk as DATA section, one context per chunk (encryption, generated IV, configured slot); a double error in its buffers fails the message of the chunk in the core | `olo_base_chunker`, `olo_ft_fifo_packet`, `olo_ft_fifo_sync`, `olo_base_pl_stage` | none (D15) |
+
 ### Modules
 
 A module is one group of blocks with its own specification, verification plan, testbench and verification report.
@@ -353,14 +385,18 @@ A module is one group of blocks with its own specification, verification plan, t
 | `ocr_gcm` | IN-1, IN-2, CT-1, TG-1, OU-1 to OU-3 | `ocr_gcm`, `ocr_gcm_pkg`, `ocr_gcm_input`, `ocr_gcm_keystream`, `ocr_gcm_combine`, `ocr_gcm_tag`, `ocr_gcm_output` |
 | `ocr_key_table` | KT-1 to KT-4 | `ocr_key_table` |
 | `ocr_mib` | MG-1, MG-2 | `ocr_mib` |
+| `ocr_packer` | OU-4 | `ocr_packer` |
 | `ocr_core` | Top level | `ocr_core` |
+| `ocr_framer` | FR-1 | `ocr_framer` |
 
 ## 8 Open Logic usage
 
 | Open Logic entity | Used in | Purpose |
 | --- | --- | --- |
-| `olo_ft_fifo_sync` | IN-1, CT-1, TG-1, OU-1, OU-3, GH-1, KT-3 | Data, keystream, J0, hash, output, hash subkey, descriptor, summary, result, status and job FIFOs with ECC |
-| `olo_ft_fifo_packet` | OU-2 | Release buffer: store-and-forward of complete output messages, drop of failed messages |
+| `olo_ft_fifo_sync` | IN-1, CT-1, TG-1, OU-1, OU-3, GH-1, KT-3, FR-1 | Data, keystream, J0, hash, output, hash subkey, descriptor, summary, result, status, job and chunk position FIFOs with ECC |
+| `olo_ft_fifo_packet` | OU-2, FR-1 | Release buffer: store-and-forward of complete output messages, drop of failed messages; chunk buffer of the framer |
+| `olo_base_chunker` | FR-1 | Cuts the input packets of the framer into chunks |
+| `olo_base_pl_stage` | GH-1, FR-1 | Block queue of GHASH; output register of the framer |
 | `olo_ft_ram_sdp_scrub` | KT-1 | Key, hash subkey and IV memories with ECC and background scrubbing |
 | `olo_axi_lite_slave` | MG-1 | AXI4-Lite access to the register file |
 | `olo_ft_ecc_monitor` | MG-2 | SEC and DED counters per table and buffer, DED sticky flags |
@@ -383,8 +419,9 @@ traceability matrix of section 10 is checked by `tools/compliance.py`.
 
 | Level | Scope | Bench | Checks |
 | --- | --- | --- | --- |
-| Unit | `ocr_pkg`, AES engine, GHASH, GCM data path, key table, register file | `<entity>_th.vhd` (clock, DUT, models) and `<entity>_tb.vhd` (VUnit runner, one `run("test_...")` per test of the verification plan) | UVVM checks; every output byte compared with the expected values of pycryptodome or of the examples of the standards |
-| Core | One core with keys loaded through the AXI4-Lite port, and two cores in series (encryption, then decryption) | Message source and sink models, context and status models, an AXI4-Lite VVC | Encryption and decryption against pycryptodome, key changes per message, generated IVs, every status code, throughput, reset |
+| Unit | `ocr_pkg`, AES engine, GHASH, GCM data path, key table, register file, output packer, framer | `<entity>_th.vhd` (clock, DUT, models) and `<entity>_tb.vhd` (VUnit runner, one `run("test_...")` per test of the verification plan) | UVVM checks; every output byte compared with the expected values of pycryptodome or of the examples of the standards |
+| Core | One core with keys loaded through the AXI4-Lite port, with the sectioned and the dense output, and two cores in series (encryption, then decryption) | Message source and sink models, context and status models, an AXI4-Lite VVC | Encryption and decryption against pycryptodome, key changes per message, generated IVs, every status code, throughput, reset |
+| Framer and core | The framer in front of a core with the dense output | Packet source, dense message sink, status sink, an AXI4-Lite VVC | Every chunk encrypted with the next generated IV and its position as AAD against pycryptodome; double errors in the framer fail their chunks |
 
 ### Framework
 
@@ -475,3 +512,5 @@ verification plans, lists the requirements and test cases of every clause.
 6. Register file (MG-1, MG-2) with the generated register map.
 7. Core top level (`ocr_core`) with core tests of one core and of two cores in series, the compliance matrix, the
    synthesizability check and the user guide.
+8. Dense output (OU-4, `ocr_packer`) with unit tests and the core tests with the dense output; framer (FR-1,
+   `ocr_framer`) with unit tests and tests of the framer in front of a core.

@@ -2,12 +2,13 @@
 
 ## 1. Test results
 
-Run on 2026-10-11 with GHDL 6.0.0 (mcode), VUnit 5.0.0.dev7, UVVM (commit 4f1e13bf), pycryptodome 3.23.0, Open Logic
-4.7.0-ft.1: `python run.py -p 4 "*ocr_core_tb*"` (part of the full regression of 278 test runs).
+Run on 2026-10-13 with GHDL 6.0.0 (mcode), VUnit 5.0.0.dev7, UVVM (commit 4f1e13bf), pycryptodome 3.23.0, Open Logic
+4.7.0-ft.3: `python run.py -p 2 "*ocr_core_tb*"` (part of the full regression of 348 test runs). The six
+configurations without the dense output passed on 2026-10-11 with Open Logic 4.7.0-ft.1 as well.
 
 | Testbench | Configurations | Tests | Passed |
 | --- | --- | --- | --- |
-| `ocr_core_tb` | 6 (see the verification plan) | 40 | 40 |
+| `ocr_core_tb` | 10 (see the verification plan), 4 of them with the dense output | 64 | 64 |
 
 QuestaSim (Questa Sim Microchip Edition 2024.3): the same tests pass in the regression with code coverage
 (`python run.py --questa --coverage -p 1`); the coverage is in [docs/coverage.md](../../../docs/coverage.md).
@@ -28,6 +29,14 @@ Throughput of back-to-back messages without stall cycles (TC-CO-10, TC-CO-11):
 | `w64_k192_n8` | 1221, 10 | 1263, 4 |
 | `w128_k256_n4` | 705, 10 | 711, 4 |
 | `w32_k256_n4_rel` | | 2618, 4 |
+| `w16_k128_n2_dense` | 4581, 77 (allowed 171) | 5533, 4 |
+| `w32_k256_n4_dense` | 2595, 99 (allowed 170) | 2618, 4 |
+| `w128_k256_n4_dense` | 693, 118 (allowed 172) | 711, 4 |
+| `w64_k192_n8_dense_rel` | | 1263, 4 |
+
+With the dense output the encryption output has fewer beats (the packing saves the partial beats at the section
+ends) and correspondingly more cycles without a beat; the allowed number is 40 plus the saved beats plus one per
+message (CO-PF-02). The decryption input is not slowed down.
 
 Findings:
 

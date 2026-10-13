@@ -1,8 +1,9 @@
 # OpenCrypto User Guide
 
-This guide describes how to integrate the OpenCrypto core `ocr_core` into an FPGA design: sources, generics, clock
-and reset, interfaces, the programming sequence, the integration constraints with the obligations that the user of
-AES-GCM keeps, and the conformance statement for FIPS 197, NIST SP 800-38D and CCSDS 352.0-B-2. The architecture is
+This guide describes how to integrate the OpenCrypto core `ocr_core` and its framer `ocr_framer` into an FPGA
+design: sources, generics, clock and reset, interfaces, the programming sequence, the integration constraints with the
+obligations that the user of AES-GCM keeps, and the conformance statement for FIPS 197, NIST SP 800-38D and CCSDS
+352.0-B-2. The architecture is
 described in [architecture.md](architecture.md), the registers in the generated
 [register map](../hdl/ocr_mib/docs/register_map.md).
 
@@ -27,6 +28,7 @@ All sources are VHDL-2008 and contain no vendor primitive.
 | `LenBits_g` | 32 | Width of the byte counts: AAD and DATA sections of up to 2<sup>`LenBits_g`</sup> - 1 bytes (8 to 32) |
 | `ReleaseBuffer_g` | false | Release buffer at the output: a message leaves the core only when its status is OK |
 | `ReleaseBytes_g` | 4096 | Size of the release buffer in bytes: a power of two of at least 16 beats; longer messages are dropped with OVERFLOW |
+| `DenseOutput_g` | false | Dense output: every output message leaves as one gapless byte string (section 4.5) |
 | `ClkFreqHz_g` | 100.0e6 | Clock frequency, sizes the pacer of the key table scrubbers |
 | `ScrubPeriod_g` | 0.0 | Scrub period of the key table in seconds; 0 scrubs in every cycle without access |
 
@@ -46,9 +48,9 @@ generics registers report the values that the core uses.
 ## 3. Clock and reset
 
 All of the core runs in `Clk`; there is no clock domain crossing. `Rst` is synchronous and high-active (Open Logic
-convention); synchronise its release to `Clk`, for example with `olo_ft_reset_gen`. After the reset the key table
-erases every slot (`NumKeys_g` clock cycles, `STATUS.BUSY` = '1'); contexts and key loads are accepted afterwards.
-No key survives a reset.
+convention); synchronise its release to `Clk`, for example with `olo_base_reset_gen` with `SyncTmr_g` = true
+(triplicated synchroniser). After the reset the key table erases every slot (`NumKeys_g` clock cycles,
+`STATUS.BUSY` = '1'); contexts and key loads are accepted afterwards. No key survives a reset.
 
 Every stream transfers one beat per clock cycle while its partner is ready. For back-to-back messages the bottleneck
 side (the output of encryptions, the input of decryptions) transfers one beat per clock cycle after the initial
@@ -92,6 +94,7 @@ section of the beat:
 - A message without DATA section is a GMAC message: the encryption outputs the AAD and the tag, the decryption
   verifies the tag of the AAD.
 - With `ReleaseBuffer_g` a message whose status is not OK does not leave the core; its status does.
+- With `DenseOutput_g` the output messages have no gaps at the section ends (section 4.5).
 
 ### 4.3 Status (`M_Sts_*`)
 
@@ -127,6 +130,89 @@ rejects (KEY, IV_MODE, IV_EXHAUSTED, ECC of the key table) is consumed without p
 
 AXI4-Lite slave with 8-bit byte addresses and 32-bit registers ([register map](../hdl/ocr_mib/docs/register_map.md),
 C header `sw/ocr_regs.h`). `Irq` is the OR of the event flags enabled in `IRQ_EN`.
+
+### 4.5 Dense output
+
+With `DenseOutput_g` = true the output packer closes the gaps that the sections leave at their ends. Every output
+message is one byte string IV ‖ AAD ‖ DATA ‖ TAG (the sections it has, in this order) without gaps: all bytes of a
+beat are valid except in the last beat of the message, whose valid bytes are contiguous from lane 0.
+
+| Signal | Sectioned output (default) | Dense output |
+| --- | --- | --- |
+| `M_Out_Keep` | Partial in the last beat of every section | Partial in the last beat of the message only |
+| `M_Out_User(1:0)` | Section of the beat | Section of the first byte of the beat |
+| `M_Out_User(2)` | Error flag on the last beat of the message | Unchanged |
+
+The bytes, the status and the error flag are the same in both formats; a message without any byte is one beat without
+valid byte in both. The section boundaries follow from the lengths: the IV section has 12 bytes, the TAG section 16
+bytes, and the status reports the AAD and DATA bytes. The packer adds one clock cycle of latency; after the last beat
+of a message whose bytes need one more output beat it takes no input for one cycle. Use the sectioned output when
+the output feeds the input of a second core (decryption).
+
+### 4.6 Framer (`ocr_framer`)
+
+The framer sits in front of the core and encrypts packets of any length, for example compressed images, in messages
+of bounded size. It cuts every packet into chunks of `ChunkBytes_g` bytes (the last chunk of a packet has the
+remaining bytes, without padding) and sends every chunk as one message: an AAD section of 4 bytes with the position
+of the chunk in its packet, then the chunk as DATA section. For every chunk it hands one context to the core: an
+encryption with a generated IV of the slot `Cfg_Slot`.
+
+| Generic | Default | Description |
+| --- | --- | --- |
+| `DataWidth_g` | 32 | Width of the streams: the `DataWidth_g` of the core |
+| `NumKeys_g` | 4 | The `NumKeys_g` of the core (width of the slot) |
+| `ChunkBytes_g` | 4096 | Bytes of a chunk, a multiple of 16 |
+| `BufferChunks_g` | 2 | Chunks that the chunk buffer holds (2 to 64) |
+| `RamStyle_g` | "auto" | RAM style of the chunk buffer |
+
+| Port | Direction | Connection |
+| --- | --- | --- |
+| `Clk`, `Rst` | in | The clock and reset of the core |
+| `Cfg_Slot` | in | Key slot of the contexts; static, loaded with `IV_GEN` = '1' |
+| `S_In_*` (`Valid`, `Ready`, `Data`, `Keep`, `Last`) | in | Packets: all bytes valid except in the last beat of a packet, contiguous from lane 0; a packet without byte is one beat without valid byte |
+| `M_Ctx_*` | out | `S_Ctx_*` of the core, signal by signal |
+| `M_Out_*` (`Valid`, `Ready`, `Data`, `Keep`, `Last`, `User(1:0)`) | out | `S_In_*` of the core, signal by signal |
+| `Ecc_Sec(1:0)`, `Ecc_Ded(1:0)` | out | Corrected and detected errors (pulses) of the chunk buffer (0) and of the position FIFO (1), for example to an EDAC monitor |
+| `ErrInj_Sel`, `ErrInj_BitFlip(1:0)`, `ErrInj_Valid` | in | Error injection into the next word written to the chunk buffer ('0') or the position FIFO ('1'): "01" single, "11" double error; tests only |
+
+The position is in bits 7:6 of the first AAD byte; all other AAD bits are '0':
+
+| Position | Chunk |
+| --- | --- |
+| "01" | First chunk of a packet with several chunks |
+| "00" | Middle chunk |
+| "10" | Last chunk of a packet with several chunks |
+| "11" | The only chunk of its packet |
+
+The framer buffers every chunk completely before it sends it, because the position "last" is known only at the end
+of a chunk. The buffer holds `BufferChunks_g` chunks, so it takes the next chunk while one leaves; the output carries
+the AAD beats in addition to the chunk, and the input pauses for at most ceil(4 / (`DataWidth_g` / 8)) + 2 cycles
+per chunk while the core keeps up. The chunk buffer and the position FIFO are SECDED-protected: a single error is
+corrected; a double error marks the affected beat with the IV section code, which the core rejects (FORMAT, error
+flag, zero tag), so a corrupted chunk never leaves with a valid tag.
+
+With the dense output every chunk leaves the core as one byte string:
+
+| Bytes | Content |
+| --- | --- |
+| 0 to 11 | IV: fixed field of the slot ‖ invocation counter (GCM 8.2.1) |
+| 12 to 15 | Position (AAD) |
+| 16 to 16 + n - 1 | Ciphertext of the n bytes of the chunk |
+| 16 + n to 31 + n | Tag |
+
+IV and position fill one 128-bit block, so the ciphertext starts on a beat boundary at every data width. A receiver
+decrypts every chunk on its own: IV from bytes 0 to 11, AAD from bytes 12 to 15, tag from the last 16 bytes; it
+discards a chunk whose tag fails, orders the chunks by the invocation counter (a gap marks a lost chunk) and finds
+the packet boundaries in the positions. Every chunk consumes one invocation of the slot: save the counter regularly
+(section 6, GCM 9.1).
+
+### 4.7 Example: encrypted image packets
+
+A compressor such as OpenCompact delivers each compressed image as one packet (first byte in lane 0). The chain
+compressor → `ocr_framer` → `ocr_core` (`DenseOutput_g` = true) → send port of a packet service (for example the
+Octet String Service of OpenSPP) turns every image into a sequence of space packets of at most `ChunkBytes_g` + 32
+bytes of user data, each one authenticated on its own. The send port needs a buffer of at least `ChunkBytes_g` + 32
+bytes; every packet is unsegmented, the image boundaries are in the authenticated positions.
 
 ## 5. Programming sequence
 
@@ -174,6 +260,7 @@ Further constraints:
 | Constraint | Reason |
 | --- | --- |
 | One context per message, in the order of the messages | The core pairs the n-th context with the n-th message |
+| `ocr_framer`: the slot `Cfg_Slot` is loaded for generated IVs and stays unchanged while the framer holds chunks; the framer and the core share clock and reset | Every chunk is an encryption with a generated IV; a reset of only one of them leaves contexts or messages without partner |
 | Hold the section in `TUser` constant within a section and start every section with a new beat | Message format (section 4.2) |
 | The release buffer holds the longest message | Longer messages are dropped with OVERFLOW |
 | `ECC_INJECT` is for tests only | An injected double error fails a message |
@@ -244,7 +331,7 @@ specifications.
 python run.py -p 4                          # regression with GHDL
 python run.py --questa --coverage -p 1      # code coverage with QuestaSim
 python lint/lint.py                         # VSG
-python lint/synth_check.py                  # synthesizability of four core configurations with GHDL
+python lint/synth_check.py                  # synthesizability of the core and the framer with GHDL
 python tools/compliance.py --check          # traceability of FIPS 197, SP 800-38D and CCSDS 352.0-B-2
 python tools/regmap.py --check              # generated register map up to date
 python tools/ocr_vectors.py --selftest      # pycryptodome against the examples of the standards

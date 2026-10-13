@@ -11,7 +11,8 @@ user guide ([docs/user_guide.md](../../docs/user_guide.md)) describes its integr
 | [Verification plan](docs/verification_plan.md) | Test cases and seams |
 | [Verification report](docs/verification_report.md) | Results |
 
-Tests: `python run.py -p 4 "*ocr_core_tb*"` (six configurations, one of them with two cores in series).
+Tests: `python run.py -p 4 "*ocr_core_tb*"` (ten configurations, one of them with two cores in series, four with the
+dense output).
 
 | File | Content |
 | --- | --- |

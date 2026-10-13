@@ -22,19 +22,22 @@ Closure rules:
 - Conditions and expressions: every miss is reviewed for untested behaviour (section 3); a remaining miss is listed
   with its justification in section 4.
 - `-- coverage off` / `-- coverage on` are used for one kind of code only: the `when others` branch of a state machine
-  whose enumerated state type lists every state (`ocr_gcm_output`, `ocr_key_table`). The branch is the recovery path
-  of an illegal state (architecture D13) and cannot be reached in simulation.
+  whose enumerated state type lists every state (`ocr_gcm_output`, `ocr_key_table`, `ocr_framer`). The branch is the
+  recovery path of an illegal state (architecture D13) and cannot be reached in simulation.
 
 ## 2. Result
 
-Run on 2026-10-11: 278 tests (65 test cases in their configurations), all passed, 31 minutes. Numbers are
-covered/total bins per file; bold marks a metric with misses. `ocr_core.vhd` and the register package contain no
-statements of their own.
+Run on 2026-10-13: 348 tests (76 test cases in their configurations), all passed, 67 minutes; the framer tests ran
+once more after the extension of TC-FR-02 (section 3) and their coverage is merged into the result. Numbers are
+covered/total bins per file; bold marks a metric with misses. The register package contains no statements of its
+own; the statements of `ocr_core.vhd` are the connections of the sectioned and the dense output.
 
 | File | Statements | Branches | FSM States | FSM Transitions | Conditions | Expressions |
 | --- | --- | --- | --- | --- | --- | --- |
 | `ocr_aes/src/ocr_aes_engine.vhd` | 31/31 | 13/13 |  |  | 4/4 | 2/2 |
 | `ocr_aes/src/ocr_aes_unit.vhd` | 23/23 | 10/10 |  |  |  | 2/2 |
+| `ocr_core/src/ocr_core.vhd` | 6/6 |  |  |  |  |  |
+| `ocr_framer/src/ocr_framer.vhd` | 77/77 | 44/44 | 3/3 | **4/5** | **15/16** | **14/19** |
 | `ocr_gcm/src/ocr_gcm.vhd` | 66/66 | 14/14 |  |  | 2/2 | **47/68** |
 | `ocr_gcm/src/ocr_gcm_combine.vhd` | **63/64** | **28/29** |  |  | **10/12** | 9/9 |
 | `ocr_gcm/src/ocr_gcm_input.vhd` | 145/145 | 97/97 |  |  | **60/62** | **23/24** |
@@ -44,13 +47,15 @@ statements of their own.
 | `ocr_gcm/src/ocr_gcm_tag.vhd` | 29/29 | 21/21 |  |  | 7/7 | 6/6 |
 | `ocr_ghash/src/ocr_ghash.vhd` | 104/104 | 55/55 |  |  | 19/19 | 6/6 |
 | `ocr_key_table/src/ocr_key_table.vhd` | 155/155 | 68/68 | 3/3 | 4/4 | 31/31 | 13/13 |
-| `ocr_mib/src/ocr_mib.vhd` | **171/172** | **97/98** |  |  | 14/14 | 3/3 |
+| `ocr_mib/src/ocr_mib.vhd` | **172/173** | **97/98** |  |  | 14/14 | 3/3 |
+| `ocr_packer/src/ocr_packer.vhd` | 67/67 | 27/27 |  |  | 2/2 | 2/2 |
 | `ocr_pkg/src/ocr_pkg.vhd` | 144/144 | 37/37 |  |  | 4/4 | 11/11 |
-| Total | 1123/1125 (99.8 %) | 536/538 (99.6 %) | 8/8 (100.0 %) | 17/18 (94.4 %) | 175/179 (97.8 %) | 133/155 (85.8 %) |
+| Total | 1274/1276 (99.8 %) | 607/609 (99.7 %) | 11/11 (100.0 %) | 21/23 (91.3 %) | 192/197 (97.5 %) | 149/176 (84.7 %) |
 
-All but two statements, all but two branches, every state and all but one transition are covered. The misses are
+All but two statements, all but two branches, every state and all but two transitions are covered. The misses are
 listed in section 4: the end of a message at a full summary FIFO, the saturation of a 32-bit counter, the reset in
-one state, and condition and expression terms that the structure of the data path excludes.
+two short states, and condition and expression terms that the structure of the data path and of the framer
+excludes.
 
 ## 3. Gaps found and closed
 
@@ -67,6 +72,7 @@ design was found on the way.
 | Register file: only one counter was cleared by a write; status codes 9 to 15, KEY_LOAD without START and a start during a running load were never applied | TC-MG-05 and TC-MG-02 extended |
 | Package: the precedence of OVERFLOW was checked with constant arguments only, which the simulator evaluates at compile time | TC-PK-09 merges every pair of codes at run time |
 | ECC events with stall cycles at the outputs: an error must be counted once while its entry waits | TC-CO-07 runs with 50 % stall cycles at the outputs and checks the exact counts. QuestaSim then showed a lost double error in the output assembly: a procedure of its combinational process read the error flag directly, and QuestaSim does not include such a signal in the sensitivity list of `process (all)`. The flag is a parameter now; the rule is part of the [conventions](conventions.md) |
+| Framer: the limit of the contexts owed to the core was never reached; a context receiver that is slow but takes contexts never lets them pile up | TC-FR-02 holds the context receiver for 3000 cycles: the framer stops taking chunks at its limit, delivers the chunks it holds and resumes when the contexts are taken |
 
 ## 4. Remaining misses
 
@@ -77,6 +83,9 @@ design was found on the way.
 | `ocr_gcm/src/ocr_gcm_output.vhd:369` | Transition `Iv_s -> Idle_s` | The transition is the reset in the state `Iv_s`, which holds only the 1 to 6 beats of an IV section. The synchronous reset sets `Idle_s` from any state without a condition on the state; TC-GC-12 resets the data path while messages are in it and checks every following message |
 | `ocr_gcm/src/ocr_gcm_input.vhd:395, 408, 410` | Condition and expression term: hash subkey FIFO full while the descriptor FIFO accepts | Both FIFOs are written together and have the same depth; the hash subkey FIFO is read when GHASH starts a message, the descriptor FIFO when the output starts it. The descriptor FIFO fills first under back-pressure (TC-GC-15); the hash subkey FIFO can hold one entry more only while the output is one message ahead of GHASH, which requires GHASH to be idle. The term keeps the hash subkey FIFO from overflowing |
 | `ocr_gcm/src/ocr_gcm.vhd:730 to 751` | 16 expression terms `Valid` = '0' and 5 terms `Ready` = '0' of the ECC event qualification | An ECC event is counted when an entry with an error leaves its FIFO (flag, valid and ready). The flags of an FT FIFO decode the output word also while the FIFO is empty; the regression never leaves an erroneous word at the output of an empty FIFO, because an injected error is written into the next entry and leaves with it. The exact counts of TC-GC-10 and TC-CO-07 (with stall cycles at the outputs) show that every error is counted exactly once |
+| `ocr_framer/src/ocr_framer.vhd:435 to 438` | 4 expression terms `Valid` = '0' of the ECC event qualification | As for the data path: the injected error is written into the next entry and leaves with it, never at the output of an empty FIFO. The exact counts of TC-FR-04 show that every error is counted exactly once |
+| `ocr_framer/src/ocr_framer.vhd:215, 223` | Condition and expression term: position FIFO full | The position FIFO holds one entry per complete chunk whose output has not started and has room for at least 4 · `BufferChunks_g` entries, the maximum number of chunks in the chunk buffer. It can only fill when the chunk buffer holds that maximum, and then the chunk buffer does not take a further chunk either; this alignment did not occur in the regression, not even with the context receiver held in TC-FR-02. The term keeps the position FIFO from overflowing |
+| `ocr_framer/src/ocr_framer.vhd:353` | Transition `Aad_s -> Idle_s` | The transition is the reset in the state `Aad_s`, which holds only the one or two AAD beats of a chunk. The synchronous reset sets `Idle_s` from any state without a condition on the state; TC-FR-05 resets the framer while chunks are in it and checks every following chunk |
 
 ## 5. Reproduction
 

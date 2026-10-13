@@ -9,7 +9,8 @@
 -- Test harness of ocr_core: clock, the UVVM engine, core A with the models of vector set 0 (context
 -- source, message source, message sink, status sink) and an AXI4-Lite VVC (index 0). With Series_g a
 -- second core B (AXI4-Lite VVC index 1) decrypts the output of core A: its context source, message sink
--- and status sink (channels 4 to 6) expect the decryption of the encryptions of set 0.
+-- and status sink (channels 4 to 6) expect the decryption of the encryptions of set 0. With
+-- DenseOutput_g core A has the dense output and its sink checks the gapless format.
 --
 -- Documentation: hdl/ocr_core/docs/verification_plan.md
 
@@ -41,6 +42,7 @@ entity ocr_core_th is
         NumKeys_g       : positive := 4;
         ReleaseBuffer_g : boolean  := false;
         ReleaseBytes_g  : positive := 4096;
+        DenseOutput_g   : boolean  := false;
         Series_g        : boolean  := false
     );
     port (
@@ -167,7 +169,8 @@ begin
             KeyBits_g       => KeyBits_g,
             NumKeys_g       => NumKeys_g,
             ReleaseBuffer_g => ReleaseBuffer_g,
-            ReleaseBytes_g  => ReleaseBytes_g
+            ReleaseBytes_g  => ReleaseBytes_g,
+            DenseOutput_g   => DenseOutput_g
         )
         port map (
             Clk               => Clk_i,
@@ -299,7 +302,8 @@ begin
             generic map (
                 Channel_g   => ChSink_c,
                 DataWidth_g => DataWidth_g,
-                Decrypt_g   => false
+                Decrypt_g   => false,
+                Dense_g     => DenseOutput_g
             )
             port map (
                 Clk      => Clk_i,

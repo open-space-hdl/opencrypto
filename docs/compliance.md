@@ -39,12 +39,12 @@ the standard" of the module specifications.
 | GCM 6.3 | Multiplication operation on blocks | GH-1 | GH-FN-02, PK-GF-01, PK-GF-02 | TC-GH-01, TC-GH-02, TC-PK-06, TC-PK-07 | Verified |
 | GCM 6.4 | GHASH function | GH-1 | GH-FN-03 | TC-GH-01, TC-GH-02 | Verified |
 | GCM 6.5 | GCTR function | CT-1 | GC-CB-02, GC-CT-01 | TC-GC-01, TC-GC-02, TC-GC-03 | Verified |
-| GCM 7.1 | Algorithm for the authenticated encryption function | CT-1 | CO-FN-01, CO-FN-05, GC-CB-01, GC-CT-01, GC-CT-02, GC-IF-05, GC-OU-01, GC-TG-01, GH-FN-01, KT-IF-04, KT-LD-01, MG-KL-02 | TC-CO-02, TC-CO-03, TC-CO-13, TC-GC-01, TC-GC-02, TC-GC-03, TC-GC-05, TC-GC-11, TC-GC-15, TC-GH-01, TC-GH-02, TC-KT-02, TC-MG-02 | Verified |
+| GCM 7.1 | Algorithm for the authenticated encryption function | CT-1 | CO-FN-01, CO-FN-05, FR-IN-01, GC-CB-01, GC-CT-01, GC-CT-02, GC-IF-05, GC-OU-01, GC-TG-01, GH-FN-01, KT-IF-04, KT-LD-01, MG-KL-02 | TC-CO-02, TC-CO-03, TC-CO-13, TC-FR-06, TC-FR-07, TC-GC-01, TC-GC-02, TC-GC-03, TC-GC-05, TC-GC-11, TC-GC-15, TC-GH-01, TC-GH-02, TC-KT-02, TC-MG-02 | Verified |
 | GCM 7.2 | Algorithm for the authenticated decryption function | TG-1 | CO-FN-01, CO-FN-05, GC-CB-01, GC-CT-01, GC-CT-02, GC-IF-05, GC-IN-02, GC-OU-02, GC-OU-04, GC-TG-02, GH-FN-01, KT-LD-01 | TC-CO-02, TC-CO-03, TC-CO-13, TC-GC-01, TC-GC-02, TC-GC-03, TC-GC-04, TC-GC-08, TC-GC-11, TC-GC-14, TC-GC-15, TC-GH-01, TC-GH-02, TC-KT-02 | Verified |
-| GCM 8 | Uniqueness requirement on IVs and keys | KT-4 | CO-FN-02, CO-FN-03, KT-IF-02, KT-IV-01, KT-IV-02, KT-RS-02, MG-KL-02 | TC-CO-02, TC-CO-04, TC-CO-05, TC-KT-02, TC-KT-03, TC-KT-04, TC-MG-02 | Verified |
+| GCM 8 | Uniqueness requirement on IVs and keys | KT-4 | CO-FN-02, CO-FN-03, FR-IN-01, KT-IF-02, KT-IV-01, KT-IV-02, KT-RS-02, MG-KL-02 | TC-CO-02, TC-CO-04, TC-CO-05, TC-FR-06, TC-FR-07, TC-KT-02, TC-KT-03, TC-KT-04, TC-MG-02 | Verified |
 | GCM 8.1 | Key establishment | User (fresh keys) | - | - | User obligation |
-| GCM 8.2 | IV constructions: one construction per key | KT-3 | CO-FN-02, CO-FN-03, KT-IF-02, KT-IV-01, KT-RS-02, MG-KL-02 | TC-CO-02, TC-CO-04, TC-CO-05, TC-KT-02, TC-KT-03, TC-MG-02 | Verified |
-| GCM 8.2.1 | Deterministic construction | KT-4 | CO-FN-02, KT-IV-01, MG-KL-02 | TC-CO-04, TC-KT-03, TC-MG-02 | Verified |
+| GCM 8.2 | IV constructions: one construction per key | KT-3 | CO-FN-02, CO-FN-03, FR-IN-01, KT-IF-02, KT-IV-01, KT-RS-02, MG-KL-02 | TC-CO-02, TC-CO-04, TC-CO-05, TC-FR-06, TC-FR-07, TC-KT-02, TC-KT-03, TC-MG-02 | Verified |
+| GCM 8.2.1 | Deterministic construction | KT-4 | CO-FN-02, FR-IN-01, KT-IV-01, MG-KL-02 | TC-CO-04, TC-FR-06, TC-FR-07, TC-KT-03, TC-MG-02 | Verified |
 | GCM 8.2.2 | RBG-based construction | User (external IVs) | - | - | User obligation |
 | GCM 8.3 | Constraints on the number of invocations | KT-4 | CO-FN-03, KT-IV-02 | TC-CO-02, TC-CO-05, TC-KT-04 | Verified |
 | GCM 9.1 | Design considerations: generation unit, IV protection, loss of power | KT-4 | CO-FN-02, KT-IF-03, KT-IV-03, MG-QU-01 | TC-CO-04, TC-KT-01, TC-KT-02, TC-KT-03, TC-MG-04 | Verified |
@@ -67,11 +67,13 @@ included).
 | Module | Requirements | Verified by a test case | Without a test case |
 | --- | --- | --- | --- |
 | `ocr_aes` | 7 | 7 | - |
-| `ocr_core` | 11 | 11 | - |
+| `ocr_core` | 13 | 13 | - |
+| `ocr_framer` | 11 | 11 | - |
 | `ocr_gcm` | 24 | 24 | - |
 | `ocr_ghash` | 9 | 9 | - |
 | `ocr_key_table` | 16 | 16 | - |
 | `ocr_mib` | 12 | 12 | - |
+| `ocr_packer` | 7 | 7 | - |
 | `ocr_pkg` | 11 | 11 | - |
 
-Requirements: 90; without a test case: 0; test cases of the plans not run by a testbench: 0.
+Requirements: 110; without a test case: 0; test cases of the plans not run by a testbench: 0.

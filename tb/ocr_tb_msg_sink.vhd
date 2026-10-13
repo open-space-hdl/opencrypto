@@ -10,7 +10,10 @@
 -- expected output sections of the messages of its vector set: section code, byte enables, every
 -- valid byte, TLast and the error flag (TUser(2), '1' when the expected status is not OK). A message
 -- with the expected section 'X' is checked only for its end and its error flag. Random cycles without
--- ready; counts the cycles with ready but without valid while messages are expected (gaps).
+-- ready; counts the cycles with ready but without valid while messages are expected (gaps). With
+-- Dense_g the expected sections form one gapless byte stream: all bytes valid except in the last beat,
+-- TUser(1:0) the section of the first byte of the beat (of the last section for a message without
+-- any byte).
 --
 -- What this model does NOT check or reproduce: the data of lanes without byte enable; the content of
 -- messages with the expected section 'X'. On an abort (reset tests) it drops the message it receives and
@@ -44,7 +47,9 @@ entity ocr_tb_msg_sink is
         Seed_g      : positive := 2;
         -- Second core of two cores in series: the decryption of an encryption of the set gives back its AAD and
         -- DATA input sections, without error flag
-        Decrypt_g   : boolean  := false
+        Decrypt_g   : boolean  := false;
+        -- Dense output: the sections without gaps
+        Dense_g     : boolean  := false
     );
     port (
         Clk      : in    std_logic;
@@ -94,6 +99,7 @@ begin
         variable LastExp_v : std_logic;
         variable Started_v : boolean  := false;
         variable Abort_v   : boolean  := false;
+        variable Tot_v     : natural;
 
         -- Waits for the next accepted beat (random ready); counts the gaps
         procedure getBeat is
@@ -193,6 +199,52 @@ begin
             return OcrVec_v.inByte(Set_g, m, inSec(m, s), i);
         end function;
 
+        -- Dense output: number of bytes of all expected sections
+        impure function totalLen (m : natural) return natural is
+            variable N_v : natural := 0;
+        begin
+
+            for s in 0 to expCount(m) - 1 loop
+                N_v := N_v + expLen(m, s);
+            end loop;
+
+            return N_v;
+        end function;
+
+        -- Dense output: section index of byte g of the message (the last section for g beyond the bytes)
+        impure function secOf (
+            m : natural;
+            g : natural) return natural is
+            variable N_v : natural := 0;
+        begin
+
+            for s in 0 to expCount(m) - 1 loop
+                if g < N_v + expLen(m, s) then
+                    return s;
+                end if;
+                N_v := N_v + expLen(m, s);
+            end loop;
+
+            return expCount(m) - 1;
+        end function;
+
+        -- Dense output: byte g of the message
+        impure function denseByte (
+            m : natural;
+            g : natural) return std_logic_vector is
+            variable N_v : natural := 0;
+        begin
+
+            for s in 0 to expCount(m) - 1 loop
+                if g < N_v + expLen(m, s) then
+                    return expByte(m, s, g - N_v);
+                end if;
+                N_v := N_v + expLen(m, s);
+            end loop;
+
+            return x"00";
+        end function;
+
         procedure mismatch (text : string) is
         begin
             if Bad_v = 0 then
@@ -251,6 +303,47 @@ begin
                     if In_User(2) /= Err_v then
                         mismatch("error flag " & to_string(In_User(2)));
                     end if;
+                elsif Dense_g then
+                    Tot_v   := totalLen(M_v);
+                    Beats_v := tbBeats(Tot_v, Bytes_c);
+
+                    for b in 0 to Beats_v - 1 loop
+                        getBeat;
+                        exit when Abort_v;
+                        if In_User(1 downto 0) /= secCode(expCode(M_v, secOf(M_v, b * Bytes_c))) then
+                            mismatch("section " & to_string(In_User(1 downto 0)) & " in beat " & to_string(b));
+                        end if;
+
+                        for i in 0 to Bytes_c - 1 loop
+                            Idx_v := b * Bytes_c + i;
+                            if Idx_v < Tot_v then
+                                if In_Keep(i) /= '1' then
+                                    mismatch("byte enable of byte " & to_string(Idx_v));
+                                elsif In_Data(8 * i + 7 downto 8 * i) /= denseByte(M_v, Idx_v) then
+                                    mismatch("byte " & to_string(Idx_v) & ": " & to_hstring(In_Data(8 * i + 7 downto 8 * i)) &
+                                             " expected " & to_hstring(denseByte(M_v, Idx_v)));
+                                end if;
+                            elsif In_Keep(i) /= '0' then
+                                mismatch("byte enable of lane " & to_string(i) & " beyond the message");
+                            end if;
+                        end loop;
+
+                        if b = Beats_v - 1 then
+                            LastExp_v := '1';
+                        else
+                            LastExp_v := '0';
+                        end if;
+                        if In_Last /= LastExp_v then
+                            mismatch("TLast " & to_string(In_Last) & " in beat " & to_string(b));
+                            if In_Last = '1' then
+                                exit;
+                            end if;
+                        end if;
+                        if LastExp_v = '1' and In_User(2) /= Err_v then
+                            mismatch("error flag " & to_string(In_User(2)));
+                        end if;
+                    end loop;
+
                 else
 
                     l_sections : for s in 0 to NSec_v - 1 loop

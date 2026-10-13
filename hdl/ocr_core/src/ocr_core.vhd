@@ -8,7 +8,7 @@
 ---------------------------------------------------------------------------------------------------
 -- OpenCrypto core: AES-GCM authenticated encryption and decryption (FIPS 197, NIST SP 800-38D,
 -- CCSDS 352.0-B-2) of sectioned messages on AXI4-Stream, with a key table of NumKeys_g slots, an IV
--- generation unit per slot and a register file behind an AXI4-Lite port.
+-- generation unit per slot, an optional dense output and a register file behind an AXI4-Lite port.
 --
 -- Documentation: docs/user_guide.md
 
@@ -41,6 +41,8 @@ entity ocr_core is
         -- Release buffer of the output
         ReleaseBuffer_g : boolean                   := false;
         ReleaseBytes_g  : positive                  := 4096;
+        -- Dense output: the output messages leave as gapless byte streams
+        DenseOutput_g   : boolean                   := false;
         -- Clock frequency and scrub period of the key table (0.0: free-running scrubber)
         ClkFreqHz_g     : real                      := 100.0e6;
         ScrubPeriod_g   : real                      := 0.0
@@ -63,7 +65,8 @@ entity ocr_core is
         S_In_Keep         : in    std_logic_vector(DataWidth_g / 8 - 1 downto 0);
         S_In_Last         : in    std_logic;
         S_In_User         : in    std_logic_vector(1 downto 0);
-        -- Output messages; TUser: section (1:0), error flag on the last beat (2)
+        -- Output messages; TUser: section (1:0; with DenseOutput_g the section of the first byte of the beat), error
+        -- flag on the last beat (2)
         M_Out_Valid       : out   std_logic;
         M_Out_Ready       : in    std_logic := '1';
         M_Out_Data        : out   std_logic_vector(DataWidth_g - 1 downto 0);
@@ -157,6 +160,13 @@ architecture struct of ocr_core is
     signal InjBitFlip      : std_logic_vector(1 downto 0);
     signal Gcm_InjValid    : std_logic;
     signal Kt_InjValid     : std_logic;
+    -- GCM data path to the output
+    signal Gcm_OutValid    : std_logic;
+    signal Gcm_OutReady    : std_logic;
+    signal Gcm_OutData     : std_logic_vector(DataWidth_g - 1 downto 0);
+    signal Gcm_OutKeep     : std_logic_vector(DataWidth_g / 8 - 1 downto 0);
+    signal Gcm_OutLast     : std_logic;
+    signal Gcm_OutUser     : std_logic_vector(2 downto 0);
 
 begin
 
@@ -252,12 +262,12 @@ begin
             S_In_Keep       => S_In_Keep,
             S_In_Last       => S_In_Last,
             S_In_User       => S_In_User,
-            M_Out_Valid     => M_Out_Valid,
-            M_Out_Ready     => M_Out_Ready,
-            M_Out_Data      => M_Out_Data,
-            M_Out_Keep      => M_Out_Keep,
-            M_Out_Last      => M_Out_Last,
-            M_Out_User      => M_Out_User,
+            M_Out_Valid     => Gcm_OutValid,
+            M_Out_Ready     => Gcm_OutReady,
+            M_Out_Data      => Gcm_OutData,
+            M_Out_Keep      => Gcm_OutKeep,
+            M_Out_Last      => Gcm_OutLast,
+            M_Out_User      => Gcm_OutUser,
             M_Sts_Valid     => M_Sts_Valid,
             M_Sts_Ready     => M_Sts_Ready,
             M_Sts_Code      => M_Sts_Code,
@@ -283,6 +293,43 @@ begin
         );
 
     -----------------------------------------------------------------------------------------------
+    -- Output (OU-4): sectioned or dense
+    -----------------------------------------------------------------------------------------------
+    g_sectioned : if not DenseOutput_g generate
+        M_Out_Valid  <= Gcm_OutValid;
+        Gcm_OutReady <= M_Out_Ready;
+        M_Out_Data   <= Gcm_OutData;
+        M_Out_Keep   <= Gcm_OutKeep;
+        M_Out_Last   <= Gcm_OutLast;
+        M_Out_User   <= Gcm_OutUser;
+    end generate;
+
+    g_dense : if DenseOutput_g generate
+
+        i_packer : entity work.ocr_packer
+            generic map (
+                DataWidth_g => DataWidth_g
+            )
+            port map (
+                Clk         => Clk,
+                Rst         => Rst,
+                S_In_Valid  => Gcm_OutValid,
+                S_In_Ready  => Gcm_OutReady,
+                S_In_Data   => Gcm_OutData,
+                S_In_Keep   => Gcm_OutKeep,
+                S_In_Last   => Gcm_OutLast,
+                S_In_User   => Gcm_OutUser,
+                M_Out_Valid => M_Out_Valid,
+                M_Out_Ready => M_Out_Ready,
+                M_Out_Data  => M_Out_Data,
+                M_Out_Keep  => M_Out_Keep,
+                M_Out_Last  => M_Out_Last,
+                M_Out_User  => M_Out_User
+            );
+
+    end generate;
+
+    -----------------------------------------------------------------------------------------------
     -- Register file (MG-1, MG-2)
     -----------------------------------------------------------------------------------------------
     i_mib : entity work.ocr_mib
@@ -294,7 +341,8 @@ begin
             GhashDigit_g    => Digit_c,
             LenBits_g       => LenBits_g,
             ReleaseBuffer_g => ReleaseBuffer_g,
-            ReleaseBytes_g  => ReleaseBytes_g
+            ReleaseBytes_g  => ReleaseBytes_g,
+            DenseOutput_g   => DenseOutput_g
         )
         port map (
             Clk               => Clk,

@@ -2,10 +2,12 @@
 
 ## 1. Structure
 
-![Block diagram of ocr_core: ocr_mib, ocr_key_table and ocr_gcm with the signal groups between
-them](img/ocr_core_arch.drawio.svg)
+![Block diagram of ocr_core: ocr_mib, ocr_key_table, ocr_gcm and the optional ocr_packer with the signal groups
+between them](img/ocr_core_arch.drawio.svg)
 
-The core contains no logic of its own: it connects the three modules and resolves the generics. `AesUnits_g` = 0
+The core contains no logic of its own: it connects the modules and resolves the generics. With `DenseOutput_g` the
+output packer (`ocr_packer`, OU-4) sits between the output of the data path and `M_Out`; without it the output of the
+data path is `M_Out`. `AesUnits_g` = 0
 and `GhashDigit_g` = 0 select the defaults of the width (`aesDefaultUnits`, `ghashDefaultDigit` of `ocr_pkg`), and
 the register file reports the values that the data path uses.
 
@@ -18,6 +20,7 @@ the register file reports the values that the data path uses.
 | Status events | `ocr_gcm` | `ocr_mib` | Code and direction of every status |
 | ECC events | `ocr_gcm`, `ocr_key_table` | `ocr_mib` | Channels 0 to 10 (data path), 11 to 17 (key table) |
 | Error injection | `ocr_mib` | `ocr_gcm`, `ocr_key_table` | Target, pattern, valid |
+| Output messages | `ocr_gcm` | `ocr_packer` (`DenseOutput_g`) or `M_Out` | Sectioned output messages |
 
 ## 2. Clock, reset and start-up
 
@@ -35,4 +38,5 @@ when BUSY is '0'. The register file holds no key after the reset.
 | `AesUnits_g`, `GhashDigit_g` | resolved values | | GENERICS, GENERICS2 (resolved values) |
 | `LenBits_g` | byte counts | | GENERICS2 |
 | `ReleaseBuffer_g`, `ReleaseBytes_g` | release buffer | | GENERICS, RELEASE_BYTES |
+| `DenseOutput_g` | output packer | | GENERICS |
 | `ClkFreqHz_g`, `ScrubPeriod_g` | | scrubbers | |

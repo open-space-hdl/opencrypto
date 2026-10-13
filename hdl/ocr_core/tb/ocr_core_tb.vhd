@@ -8,7 +8,8 @@
 ---------------------------------------------------------------------------------------------------
 -- Testbench of ocr_core: register file, key load through the registers, encryption and decryption
 -- against pycryptodome with keys of several slots, generated IVs, context errors, zeroize, error
--- injection with the EDAC monitor, interrupt, throughput, reset, and two cores in series.
+-- injection with the EDAC monitor, interrupt, throughput, reset, and two cores in series; with
+-- DenseOutput_g the same tests with the dense output.
 --
 -- Documentation: hdl/ocr_core/docs/verification_plan.md
 
@@ -50,6 +51,7 @@ entity ocr_core_tb is
         NumKeys_g       : positive := 4;
         ReleaseBuffer_g : boolean  := false;
         ReleaseBytes_g  : positive := 4096;
+        DenseOutput_g   : boolean  := false;
         Series_g        : boolean  := false;
         VecDir_g        : string
     );
@@ -118,6 +120,32 @@ begin
                    (dec < 0 or (dec = 1) = OcrVec_v.msgDec(0, m)) then
                     R_v := R_v + 1;
                 end if;
+            end loop;
+
+            return R_v;
+        end function;
+
+        -- Dense output: the output beats that the packing saves (sectioned minus dense beats) plus one beat per
+        -- message (the packer may stall its input for the last beat of a message), computed from the expected sections
+        impure function packSlack return natural is
+            variable R_v   : natural := 0;
+            variable Sec_v : natural;
+            variable Tot_v : natural;
+        begin
+            if not DenseOutput_g then
+                return 0;
+            end if;
+
+            for m in 0 to OcrVec_v.msgCount(0) - 1 loop
+                Sec_v := 0;
+                Tot_v := 0;
+
+                for s in 0 to OcrVec_v.outCount(0, m) - 1 loop
+                    Sec_v := Sec_v + tbBeats(OcrVec_v.outLen(0, m, s), DataWidth_g / 8);
+                    Tot_v := Tot_v + OcrVec_v.outLen(0, m, s);
+                end loop;
+
+                R_v := R_v + Sec_v - tbBeats(Tot_v, DataWidth_g / 8) + 1;
             end loop;
 
             return R_v;
@@ -205,6 +233,7 @@ begin
             D_v(GenericsNumKeysHi_c downto GenericsNumKeysLo_c)         := std_logic_vector(to_unsigned(NumKeys_g, 9));
             D_v(GenericsRelease_c)                                      := tbSl(ReleaseBuffer_g);
             D_v(GenericsAesUnitsHi_c downto GenericsAesUnitsLo_c)       := std_logic_vector(to_unsigned(Units_c, 4));
+            D_v(GenericsDense_c)                                        := tbSl(DenseOutput_g);
             regCheck(AXILITE_VVCT, A_c, RegGenerics_c, D_v, "GENERICS");
             D_v                                                         := (others => '0');
             D_v(Generics2GhashDigitHi_c downto Generics2GhashDigitLo_c) := std_logic_vector(to_unsigned(Digit_c, 8));
@@ -409,15 +438,21 @@ begin
             -- Back-to-back encryptions through the core: the output transfers a beat in every cycle
             runSet("tp_enc.txt", 0.0);
             log(ID_SEQUENCER, "output beats " & to_string(OcrVec_v.beats(0, ChSink_c)) & ", gaps " &
-                to_string(OcrVec_v.gaps(0, ChSink_c)));
-            check_value(OcrVec_v.gaps(0, ChSink_c) <= MaxGaps_c, ERROR, "cycles without output beat");
+                to_string(OcrVec_v.gaps(0, ChSink_c)) & ", slack of the dense output " & to_string(packSlack));
+            check_value(OcrVec_v.gaps(0, ChSink_c) <= MaxGaps_c + packSlack, ERROR, "cycles without output beat");
 
         elsif run("test_throughput_decrypt") then
             -- Back-to-back decryptions through the core: the input accepts a beat in every cycle
             runSet("tp_dec.txt", 0.0);
             log(ID_SEQUENCER, "input beats " & to_string(OcrVec_v.beats(0, ChSource_c)) & ", gaps " &
                 to_string(OcrVec_v.gaps(0, ChSource_c)));
-            check_value(OcrVec_v.gaps(0, ChSource_c) <= MaxGaps_c, ERROR, "cycles without input beat");
+            -- The dense output stalls at most one cycle per message
+            if DenseOutput_g then
+                N_v := MaxGaps_c + OcrVec_v.msgCount(0);
+            else
+                N_v := MaxGaps_c;
+            end if;
+            check_value(OcrVec_v.gaps(0, ChSource_c) <= N_v, ERROR, "cycles without input beat");
 
         elsif run("test_reset") then
             -- A reset while messages are in the core erases the keys; after a new load the messages are correct
@@ -482,6 +517,7 @@ begin
             NumKeys_g       => NumKeys_g,
             ReleaseBuffer_g => ReleaseBuffer_g,
             ReleaseBytes_g  => ReleaseBytes_g,
+            DenseOutput_g   => DenseOutput_g,
             Series_g        => Series_g
         )
         port map (
