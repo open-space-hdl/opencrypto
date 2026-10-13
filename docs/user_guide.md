@@ -48,9 +48,9 @@ generics registers report the values that the core uses.
 ## 3. Clock and reset
 
 All of the core runs in `Clk`; there is no clock domain crossing. `Rst` is synchronous and high-active (Open Logic
-convention); synchronise its release to `Clk`, for example with `olo_ft_reset_gen`. After the reset the key table
-erases every slot (`NumKeys_g` clock cycles, `STATUS.BUSY` = '1'); contexts and key loads are accepted afterwards.
-No key survives a reset.
+convention); synchronise its release to `Clk`, for example with `olo_base_reset_gen` with `SyncTmr_g` = true
+(triplicated synchroniser). After the reset the key table erases every slot (`NumKeys_g` clock cycles,
+`STATUS.BUSY` = '1'); contexts and key loads are accepted afterwards. No key survives a reset.
 
 Every stream transfers one beat per clock cycle while its partner is ready. For back-to-back messages the bottleneck
 side (the output of encryptions, the input of decryptions) transfers one beat per clock cycle after the initial

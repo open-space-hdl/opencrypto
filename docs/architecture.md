@@ -283,8 +283,9 @@ the IV that was used, and the numbers of AAD and DATA bytes. Codes in order of p
 ### Clock and reset
 
 All blocks run in `Clk`. The reset input `Rst` is synchronous and high-active (Open Logic convention); the integrator
-synchronises it to `Clk`, for example with `olo_ft_reset_gen`. After the reset the key table erases all slots
-(`NumKeys_g` clock cycles); contexts are resolved after the erasure, so a message that arrives meanwhile waits.
+synchronises it to `Clk`, for example with `olo_base_reset_gen` with `SyncTmr_g` = true (triplicated synchroniser).
+After the reset the key table erases all slots (`NumKeys_g` clock cycles); contexts are resolved after the erasure, so
+a message that arrives meanwhile waits.
 
 ### Single event effects
 
