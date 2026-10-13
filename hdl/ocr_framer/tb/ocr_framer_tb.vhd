@@ -220,6 +220,28 @@ begin
                 -- A slow sink and a slow context receiver, then a slow source
                 runSet("chunks.txt", 0.0, 0.8, 0.8);
                 runSet("chunks.txt", 0.8, 0.0, 0.0);
+                -- A context receiver that takes nothing: the framer stops taking chunks once it owes the maximum number
+                -- of contexts, and resumes when the contexts are taken
+                tbLoad(0, VecDir_g & "/chunks.txt");
+                tbSetStall(0, ChSource_c, 0.0);
+                tbSetStall(0, ChSink_c, 0.0);
+                tbSetStall(0, ChCtx_c, 1.0);
+
+                for ch in 0 to 3 loop
+                    OcrVec_v.clearStats(0, ch);
+                end loop;
+
+                tbStart(0, models);
+
+                for i in 0 to 3000 loop
+                    syncClk;
+                end loop;
+
+                check_value(OcrVec_v.cursor(0, ChSink_c) < chunks, ERROR, "the framer waits for its contexts");
+                check_value(OcrVec_v.beats(0, ChCtx_c), 0, ERROR, "no context taken");
+                tbSetStall(0, ChCtx_c, 0.0);
+                tbWaitDone(0, ChSink_c, 20 ms, "chunks after the contexts were taken");
+                checkDone("chunks.txt");
 
             elsif run("test_throughput") then
                 -- With an always ready sink the input pauses at most AadBeats + 2 cycles per chunk: the output carries

@@ -38,7 +38,7 @@ coverage.
 | Test ID | Description | Requirements |
 | --- | --- | --- |
 | `test_chunks` (TC-FR-01) | The 30 packets with 30 % cycles without valid, without ready of the output and without ready of the contexts: AAD with the position and DATA of every chunk, one context per chunk with the configured slot (the last slot of the core) | FR-IF-01, FR-IF-02, FR-FN-01, FR-FN-02, FR-FN-03, FR-FN-04 |
-| `test_backpressure` (TC-FR-02) | 80 % cycles without ready of the output and of the contexts, then 80 % cycles without valid at the input: every chunk and context as expected | FR-FN-05 |
+| `test_backpressure` (TC-FR-02) | 80 % cycles without ready of the output and of the contexts, then 80 % cycles without valid at the input, then a context receiver that takes nothing for 3000 cycles (the framer stops at its limit of owed contexts and resumes): every chunk and context as expected | FR-FN-05 |
 | `test_throughput` (TC-FR-03) | The four long packets without stall cycles: at most AadBeats + 2 cycles without input beat per chunk | FR-PF-01 |
 | `test_ecc` (TC-FR-04) | One chunk at a time, a single and a double error into the chunk buffer and into the position FIFO: a single error leaves the chunk correct, a double error marks the chunk with the IV section code; exactly one SEC or DED event per injection on its buffer | FR-FT-01 |
 | `test_reset` (TC-FR-05) | Reset in the middle of a packet: the packets from the next packet start on are correct, with one context per chunk | FR-FN-06 |
