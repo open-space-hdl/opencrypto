@@ -33,9 +33,12 @@ side over the whole run, including the initial latency.
 | `w16_aes256` | 6276, 16 | 6341, 1 |
 | `w32_aes128` | 3292, 17 | 3349, 2 |
 | `w32_aes192` | 3054, 17 | 3182, 1 |
+| `w64_aes128` | 1699, 13 | 1727, 1 |
 | `w64_aes256` | 1640, 12 | 1659, 1 |
 | `w128_aes128` | 896, 13 | 907, 1 |
+| `w128_aes192` | 832, 13 | 869, 1 |
 | `w128_aes256` | 870, 12 | 877, 1 |
+| `w32_aes256_max` | 3184, 12 | 3221, 1 |
 | `w32_aes256_rel`, `w128_aes256_rel` | | 3221, 1; 877, 1 |
 
 The cycles without a beat are the initial latency; after it the bottleneck side transfers one beat in every cycle for

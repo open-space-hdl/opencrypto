@@ -100,12 +100,13 @@ Findings:
 
 ## 3. Generic values
 
-Declared ranges as in the user guide; a value outside them stops the elaboration. Simulated: the values of the VUnit
-configurations of `ocr_core_tb` and, where a module testbench covers further values, of that testbench. Synthesised: the
-configurations of `lint/synth_check.py` (`ghdl --synth`, no latch). `AesUnits_g` and `GhashDigit_g` set `Units_g` of the
-AES engine and `Digit_g` of the GHASH multiplier (the defaults of the width when they are 0); their full lists are in
-the reports of [ocr_aes](../../ocr_aes/docs/verification_report.md) and
-[ocr_ghash](../../ocr_ghash/docs/verification_report.md).
+Declared ranges as in the user guide; a value outside them stops the elaboration, and `lint/synth_check.py` checks the
+message of every assertion that excludes a value (width, key length, numbers of AES units and GHASH digit, size of the
+release buffer, scrub period and clock frequency of paced scrubbers). Simulated: the values of the VUnit configurations
+of `ocr_core_tb` and, where a module testbench covers further values, of that testbench. Synthesised: the configurations
+of `lint/synth_check.py` (`ghdl --synth`, no latch). `AesUnits_g` and `GhashDigit_g` set `Units_g` of the AES engine and
+`Digit_g` of the GHASH multiplier (the defaults of the width when they are 0); their full lists are in the reports of
+[ocr_aes](../../ocr_aes/docs/verification_report.md) and [ocr_ghash](../../ocr_ghash/docs/verification_report.md).
 
 | Generic | Declared range | Simulated | Synthesised |
 | --- | --- | --- | --- |

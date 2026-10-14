@@ -36,12 +36,12 @@ library work;
 ---------------------------------------------------------------------------------------------------
 entity ocr_key_table_tb is
     generic (
-        runner_cfg    : string;
-        KeyBits_g     : positive := 256;
-        NumKeys_g     : positive := 4;
-        ClkFreqHz_g   : real     := 100.0e6;
-        ScrubPeriod_g : real     := 0.0;
-        VecDir_g      : string
+        runner_cfg      : string;
+        KeyBits_g       : positive := 256;
+        NumKeys_g       : positive := 4;
+        ClkFreqHz_g     : positive := 100_000_000;
+        ScrubPeriodUs_g : natural  := 0;
+        VecDir_g        : string
     );
 end entity;
 
@@ -52,7 +52,7 @@ architecture sim of ocr_key_table_tb is
 
     constant ClkPeriod_c   : time := 1 sec / ClkFreqHz_g;
     -- Clock cycles between two scrub passes (0: free-running scrubbers); every wait for a scrubber adds them
-    constant ScrubCycles_c : natural  := integer(ScrubPeriod_g * ClkFreqHz_g);
+    constant ScrubCycles_c : natural  := integer(real(ScrubPeriodUs_g) * 1.0e-6 * real(ClkFreqHz_g));
     constant SlotBits_c    : positive := slotBits(NumKeys_g);
     -- Context source and job checker
     constant Both_c        : std_logic_vector(TbChannels_c - 1 downto 0) := x"06";
@@ -548,10 +548,10 @@ begin
 
     i_th : entity work.ocr_key_table_th
         generic map (
-            KeyBits_g     => KeyBits_g,
-            NumKeys_g     => NumKeys_g,
-            ClkFreqHz_g   => ClkFreqHz_g,
-            ScrubPeriod_g => ScrubPeriod_g
+            KeyBits_g       => KeyBits_g,
+            NumKeys_g       => NumKeys_g,
+            ClkFreqHz_g     => ClkFreqHz_g,
+            ScrubPeriodUs_g => ScrubPeriodUs_g
         )
         port map (
             Clk             => Clk,

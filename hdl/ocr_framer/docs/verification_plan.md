@@ -61,9 +61,9 @@ QuestaSim for code coverage.
 | FR-IN-02 | TC-FR-08 |
 
 FR-IF-02 and FR-IF-03 are checked for the legal values by every configuration, the minimum chunk of 16 bytes by
-`w128_c16`; the maximum of 65536 bytes is elaborated and synthesised by `lint/synth_check.py`. An illegal
-`ChunkBytes_g` or `DataWidth_g` stops the elaboration with an assertion of severity failure, which a simulation run
-cannot pass by construction.
+`w128_c16`; the maximum of 65536 bytes is elaborated and synthesised by `lint/synth_check.py`. An illegal `ChunkBytes_g`
+(not a multiple of 16, above 65536) or `DataWidth_g` stops the elaboration with an assertion of severity failure;
+`lint/synth_check.py` checks that it stops the elaboration with the message of its assertion.
 
 ## 5. Seams
 

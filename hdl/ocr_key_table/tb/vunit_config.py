@@ -7,8 +7,9 @@ four slots with paced scrubbers."""
 
 CONFIGS = [(256, 4), (128, 1), (192, 3), (256, 16), (128, 256)]
 # Paced scrubbers: a clock of 1 MHz (the clock of the harness follows ClkFreqHz_g) and one scrub pass every 2 ms,
-# so one pass every 2000 clock cycles
-PACED = {"k256_n4_paced": (256, 4, {"ClkFreqHz_g": 1.0e6, "ScrubPeriod_g": 0.002})}
+# so one pass every 2000 clock cycles. GHDL 6.0.0 cannot override real generics with -g: the bench takes the
+# frequency in Hz and the period in µs as integers.
+PACED = {"k256_n4_paced": (256, 4, {"ClkFreqHz_g": 1_000_000, "ScrubPeriodUs_g": 2000})}
 
 
 def configure(lib, vectors):

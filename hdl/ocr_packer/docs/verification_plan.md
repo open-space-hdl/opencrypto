@@ -38,8 +38,9 @@ Simulator: GHDL; QuestaSim for code coverage.
 | PA-FN-05 | TC-PA-04 |
 | PA-PF-01 | TC-PA-03 |
 
-PA-IF-02 is checked for the legal values by every configuration; an illegal `DataWidth_g` stops the elaboration with
-an assertion of severity failure, which a simulation run cannot pass by construction.
+PA-IF-02 is checked for the legal values by every configuration; an illegal `DataWidth_g` stops the elaboration with an
+assertion of severity failure; `lint/synth_check.py` checks that it stops the elaboration with the message of its
+assertion.
 
 The packer behind the GCM data path is verified in `ocr_core` with the dense output (configurations `*_dense` of
 the core testbench, CO-FN-07): encryptions, decryptions, generated IVs, context errors, error injection, release

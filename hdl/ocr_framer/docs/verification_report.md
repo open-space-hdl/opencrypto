@@ -37,6 +37,7 @@ Throughput of four long packets (20 chunks) without stall cycles (TC-FR-03), bou
 | `w32_c4096` | 18435 | 42 | 60 |
 | `w64_c128_b3` | 290 | 0 | 60 |
 | `w128_c256_b4` | 290 | 0 | 60 |
+| `w128_c16` | 20 | 46 | 60 |
 
 With the default buffer of two chunks the input pauses about AadBeats + 1 cycles per chunk; a buffer of three or
 four chunks absorbs the four packets completely.
@@ -70,8 +71,9 @@ Findings:
 
 ## 3. Generic values
 
-Declared ranges as in the specification; a value outside them stops the elaboration. Simulated: the VUnit configurations
-of `ocr_framer_tb`. Synthesised: the configurations of `lint/synth_check.py` (`ghdl --synth`, no latch).
+Declared ranges as in the specification; a value outside them stops the elaboration, and `lint/synth_check.py` checks
+the messages of the assertions (width, chunk size). Simulated: the VUnit configurations of `ocr_framer_tb`. Synthesised:
+the configurations of `lint/synth_check.py` (`ghdl --synth`, no latch).
 
 | Generic | Declared range | Simulated | Synthesised |
 | --- | --- | --- | --- |

@@ -70,5 +70,7 @@ throughput. Simulator: GHDL; QuestaSim for code coverage.
 Contexts, queries and loads of slots out of range run in the configurations whose slot number has unused values
 (`k128_n1`, `k192_n3`); contexts of unloaded slots run in every configuration.
 
-KT-IF-06 is checked for the legal key lengths by every configuration; an illegal `KeyBits_g` stops the elaboration
-with an assertion of severity failure, which a simulation run cannot pass by construction.
+KT-IF-06 is checked for the legal key lengths by every configuration; an illegal `KeyBits_g` stops the elaboration with
+an assertion of severity failure; `lint/synth_check.py` checks that it stops the elaboration with the message of its
+assertion. GHDL 6.0.0 cannot override real generics with -g: the bench takes the clock frequency in Hz (`ClkFreqHz_g`)
+and the scrub period in µs (`ScrubPeriodUs_g`) as integers and converts them to the real generics of the key table.

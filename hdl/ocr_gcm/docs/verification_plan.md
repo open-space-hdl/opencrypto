@@ -76,7 +76,7 @@ Simulator: GHDL; QuestaSim for code coverage.
 | GC-PF-01 | TC-GC-06, TC-GC-07 |
 | GC-FT-01 | TC-GC-10 |
 
-GC-OU-05 is checked for its minimum by `w32_aes256_rel64` and for further legal values by the other configurations
-with release buffer; the maximum of 65536 bytes is elaborated and synthesised by `lint/synth_check.py`. An illegal
-`ReleaseBytes_g` stops the elaboration with an assertion of severity failure, which a simulation run cannot pass by
-construction.
+GC-OU-05 is checked for its minimum by `w32_aes256_rel64` and for further legal values by the other configurations with
+release buffer; the maximum of 65536 bytes is elaborated and synthesised by `lint/synth_check.py`. An illegal
+`ReleaseBytes_g` (not a power of two, below 16 beats, above 65536 bytes) stops the elaboration with an assertion of
+severity failure; `lint/synth_check.py` checks that it stops the elaboration with the message of its assertion.
