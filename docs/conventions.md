@@ -39,6 +39,9 @@ document. This page lists the rules and the few OpenCrypto-specific additions.
 - The design must be synthesizable in a technology-independent way: `python lint/synth_check.py` elaborates
   `ocr_core` with the synthesis of GHDL (after `python run.py --compile`) and fails on errors and inferred latches.
   `to_01` and other simulation-only functions are not used in RTL.
+- `compile_order.txt` lists the synthesis sources in compile order. After adding, removing or renaming a source or
+  changing the dependencies between sources, regenerate it with `python run.py --compile-order`; the CI fails when it
+  is not current.
 - Traceability: every requirement of a specification is verified by at least one test case of the verification plan,
   every clause of the traceability matrix (architecture section 10) by the test cases of its requirements, and
   every test case of a plan is run by a testbench. `python tools/compliance.py` writes the

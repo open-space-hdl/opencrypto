@@ -65,6 +65,7 @@ opencrypto/
 |-- open-logic/       Git submodule: Open Logic (fault-tolerant entities branch)
 |-- uvvm/             Git submodule: UVVM verification framework
 |-- component_list.txt  Modules in dependency order
+|-- compile_order.txt   Synthesis sources in compile order (generated)
 `-- run.py            VUnit regression runner
 ```
 
@@ -93,6 +94,7 @@ python lint/lint.py                 # VSG, no errors and no warnings
 python lint/synth_check.py          # synthesizability of the core and the framer with GHDL
 python tools/compliance.py --check  # every clause and requirement traced to a test case
 python tools/regmap.py --check      # generated register map files match hdl/ocr_mib/regs/ocr_regs.yml
+python run.py --compile-order       # regenerates compile_order.txt (the CI fails when it is not current)
 python -m mkdocs build -f tools/docs/mkdocs.yml  # documentation website, fails on broken links
 ```
 
