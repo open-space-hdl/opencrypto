@@ -58,7 +58,7 @@ generated IV (`M_Ctx_IvGen` = '1', `M_Ctx_Iv` zero) of the slot `Cfg_Slot`.
 | | Double error | The word leaves with the section code IV; the core fails the message (FORMAT), its tag is zero and its last beat carries the error flag; `Ecc_Ded(0)` |
 | Position FIFO entry | Single error | Corrected, `Ecc_Sec(1)` |
 | | Double error | The AAD leaves with the section code IV; the core fails the message (FORMAT); `Ecc_Ded(1)` |
-| Packet boundaries of the chunk buffer, state machine, counters | Any | Registers: the TMR of the synthesis tool covers them where the mission requires it (D13); the reset recovers from any state |
+| Packet boundaries of the chunk buffer, state machine, counters | Any | Registers: protected by the TMR of the synthesis tool (D13, [user guide](../../../docs/user_guide.md), section 6); the reset recovers from any state |
 
 The IV of a failed chunk is consumed, so a receiver sees a gap in the invocation counters of the correct chunks.
 

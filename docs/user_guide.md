@@ -1,9 +1,9 @@
 # OpenCrypto User Guide
 
 This guide describes how to integrate the OpenCrypto core `ocr_core` and its framer `ocr_framer` into an FPGA
-design: sources, generics, clock and reset, interfaces, the programming sequence, the integration constraints with the
-obligations that the user of AES-GCM keeps, and the conformance statement for FIPS 197, NIST SP 800-38D and CCSDS
-352.0-B-2. The architecture is
+design: sources, generics, clock and reset, interfaces, the programming sequence, the protection scope, the
+integration constraints with the obligations that the user of AES-GCM keeps, and the conformance statement for FIPS
+197, NIST SP 800-38D and CCSDS 352.0-B-2. The architecture is
 described in [architecture.md](architecture.md), the registers in the generated
 [register map](../hdl/ocr_mib/docs/register_map.md).
 
@@ -204,7 +204,7 @@ IV and position fill one 128-bit block, so the ciphertext starts on a beat bound
 decrypts every chunk on its own: IV from bytes 0 to 11, AAD from bytes 12 to 15, tag from the last 16 bytes; it
 discards a chunk whose tag fails, orders the chunks by the invocation counter (a gap marks a lost chunk) and finds
 the packet boundaries in the positions. Every chunk consumes one invocation of the slot: save the counter regularly
-(section 6, GCM 9.1).
+(section 7, GCM 9.1).
 
 ### 4.7 Example: encrypted image packets
 
@@ -230,7 +230,7 @@ bytes; every packet is unsegmented, the image boundaries are in the authenticate
 6. Send contexts and messages; take the output messages and the status of every message.
 7. In operation read the counters (cleared by a write, all cleared by `CTRL.CLEAR`), `ECC_STATUS` and `ECC_COUNT`
    (channel selected by `ECC_SELECT`). Save the invocation counter of every slot with generated IVs regularly (step
-   4) to non-volatile memory, ahead of the operational value (section 6).
+   4) to non-volatile memory, ahead of the operational value (section 7).
 8. To change the key of a slot, stop sending contexts of the slot, wait for the status of its last message and load
    the slot again. `CTRL.ZEROIZE` erases every slot and the staging registers at once.
 
@@ -238,7 +238,36 @@ A context is resolved against the slot when the key table reads it, which can be
 message reaches the data path. A message whose context was resolved before a load uses the previous key; a context
 of a slot that is being loaded fails with KEY.
 
-## 6. Integration constraints
+## 6. Protection scope
+
+The core is designed for radiation environments together with the triple modular redundancy (TMR) of the synthesis
+tool, like the Open Logic ft entities it is built on. It protects the parts in the first rows itself and relies on
+TMR for all other logic:
+
+| Part | Protection | Indication and test |
+| --- | --- | --- |
+| Key table: key, hash subkey and IV memories of the slots (`olo_ft_ram_sdp_scrub` with background scrubbing) | SECDED ECC of the Open Logic ft entities: a single error is corrected, a double error is detected and contained: the messages of the slot are rejected with ECC and no key leaves the table; the slot is usable again after a new load | Status ECC, `ERR_ECC`, `ECC_STATUS` and `ECC_COUNT` (channels 11 to 16), events `ECC_SEC`, `ECC_DED` and `ECC` with `Irq`; error injection through the `ECC_INJECT` register |
+| Buffers of the core: job FIFO of the contexts, data, keystream, J0, hash, output, hash subkey, descriptor, summary, result and status FIFOs (`olo_ft_fifo_sync`), release buffer (`olo_ft_fifo_packet`) | SECDED ECC of the Open Logic ft entities: a single error is corrected, a double error is detected and contained: the message whose data the entry held fails with ECC; while it is in the core its last beat carries the error flag and the tag of an encryption is zero, and with `ReleaseBuffer_g` it does not leave the core; a double error in the release buffer ends the message with the error flag | Status ECC, `ERR_ECC`, `ECC_STATUS` and `ECC_COUNT` (channels 0 to 10 and 17), events `ECC_SEC`, `ECC_DED` and `ECC` with `Irq`; error injection through the `ECC_INJECT` register |
+| `ocr_framer`: chunk buffer (`olo_ft_fifo_packet`) and position FIFO (`olo_ft_fifo_sync`) | SECDED ECC of the Open Logic ft entities: a single error is corrected, a double error is detected and contained: the affected beat leaves with the IV section code, so the core fails the message with FORMAT, the error flag and a zero tag (with `ReleaseBuffer_g` the message does not leave the core); a corrupted chunk never leaves with a valid tag | Ports `Ecc_Sec(1:0)` and `Ecc_Ded(1:0)` of the framer, status FORMAT of the core; error injection through the `ErrInj_*` ports of the framer |
+| Clock domain crossings and reset synchronisers | The core has one clock domain and no synchroniser of its own. Synchronise the release of `Rst` with a triplicated synchroniser, for example `olo_base_reset_gen` with `SyncTmr_g` = true: three synchroniser chains and a majority voter. Their registers carry the Synplify attribute `syn_radhardlevel` = `none`, so the TMR of the synthesis tool adds no voters between the stages | none |
+| State machines | Recovery state through the `when others` branch and the reset | none |
+| All other logic: registers of the control and data paths, counters, pointers, pipeline registers | TMR of the synthesis tool (for example `syn_radhardlevel` = `tmr` with Synplify, or the equivalent setting of the tool chain). The core adds no protection of its own for this logic; without TMR, an upset in it is not covered | synthesis report |
+
+The integrator:
+
+- enables the TMR of the synthesis tool for the core and the logic around it,
+- checks in the synthesis report that TMR was applied, that the synchroniser chains of the crossings were not
+  triplicated a second time, and that no register-based storage meant to be protected by TMR was inferred as a RAM
+  primitive,
+- requests safe state machines, so that synthesis keeps the `when others` branches (AMD Vivado: property
+  `FSM_SAFE_STATE` = `default_state` on the state registers; Synplify: attribute `syn_encoding` = `safe`),
+- protects the configuration memory of SRAM-based FPGAs by scrubbing; this is part of the FPGA design, not of the
+  core.
+
+The ECC paths are verified in simulation by error injection. Whether the protection as a whole meets the
+requirements of a mission is shown by a radiation test with the core in operation (TRL 5).
+
+## 7. Integration constraints
 
 The core implements the cryptographic functions of GCM. NIST SP 800-38D places further requirements on the system
 that uses it; the table lists them with the support of the core and what the user keeps.
@@ -265,11 +294,11 @@ Further constraints:
 | The release buffer holds the longest message | Longer messages are dropped with OVERFLOW |
 | `ECC_INJECT` is for tests only | An injected double error fails a message |
 | Use AES-256 for new CCSDS missions | CCSDS 352.0-B-2 3.2.1; AES-128 is allowed for existing implementations (3.2.2), AES-192 is not part of CCSDS 352.0-B-2 |
-| Protect the control registers of the core by the TMR of the synthesis tool when the mission requires it | Memories and buffers are SECDED-protected; the state machines recover from an illegal state, but an upset in a control register can corrupt a message in flight (it is then detected by the tag of the receiver) |
+| TMR of the synthesis tool enabled for the core | The core protects its key table, buffers and framer buffers itself and relies on TMR for all other logic (section 6) |
 
-## 7. Conformance
+## 8. Conformance
 
-### 7.1 AES (FIPS 197)
+### 8.1 AES (FIPS 197)
 
 | Clause | Function | Implementation |
 | --- | --- | --- |
@@ -281,7 +310,7 @@ Further constraints:
 | 6.2 | Keying restrictions | Every key is accepted (AES has no weak keys) |
 | 6.4 | Implementation variations | Iterative round units, any number from the minimum to Nr |
 
-### 7.2 GCM (NIST SP 800-38D)
+### 8.2 GCM (NIST SP 800-38D)
 
 OpenCrypto conforms to both categories of GCM 10: GCM (messages with DATA) and GMAC (messages without DATA). The
 supported lengths (GCM 5.2.1.1, 5.2.1.2):
@@ -295,7 +324,7 @@ supported lengths (GCM 5.2.1.1, 5.2.1.2):
 
 | Clause | Function | Implementation |
 | --- | --- | --- |
-| 5.1 | Block cipher | AES; keys secret (section 6) |
+| 5.1 | Block cipher | AES; keys secret (section 7) |
 | 5.2, 5.2.1, 5.2.2 | GCM-AE, GCM-AD, GMAC, input and output data | Implemented |
 | 5.3, 6.2 to 6.5 | Primitives: inc32, multiplication, GHASH, GCTR | Implemented |
 | 7.1, 7.2 | Authenticated encryption and decryption | Implemented; FAIL is the status AUTH with the error flag, and the release buffer withholds the plaintext |
@@ -309,7 +338,7 @@ supported lengths (GCM 5.2.1.1, 5.2.1.2):
 | 9.2 | Operational considerations | User |
 | 10 | Conformance | GCM and GMAC with the lengths above |
 
-### 7.3 CCSDS 352.0-B-2 (AES-GCM)
+### 8.3 CCSDS 352.0-B-2 (AES-GCM)
 
 | Clause | Requirement | Implementation |
 | --- | --- | --- |
@@ -325,7 +354,7 @@ The [compliance matrix](compliance.md) lists the requirements and the test cases
 interpretations of the standards are listed in the sections "Interpretation of the standard" of the module
 specifications.
 
-## 8. Verification and tools
+## 9. Verification and tools
 
 ```shell
 python run.py -p 4                          # regression with GHDL
