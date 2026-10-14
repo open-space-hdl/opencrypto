@@ -21,7 +21,7 @@ scrubbing).
 and has no flight heritage; see [what the levels mean](https://openspacehdl.org/trl/) and the next steps in the
 [roadmap](docs/roadmap.md#technology-readiness).
 
-The core is complete and verified in simulation (GHDL and QuestaSim, 80 test cases at unit and core level in 362 test
+The core is complete and verified in simulation (GHDL and QuestaSim, 80 test cases at unit and core level in 441 test
 runs over stream widths of 16 to 128 bits and all three key lengths, with the sectioned and the dense output and with
 the framer in front of the core; code coverage closed, the remaining misses justified in
 [docs/coverage.md](docs/coverage.md)). Every output byte is compared with the AES and AES-GCM

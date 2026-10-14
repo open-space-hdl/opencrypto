@@ -24,10 +24,21 @@ All test cases pass; every requirement of the specification is covered (see the 
 random messages without stall cycles (TC-GH-03): the multiplier stays within its budget of max(beats + 1, steps ·
 (blocks + 1)) cycles per message in every configuration, for example 1441 of 1442 cycles at 128 bits and 11454 of 11504
 cycles at 16 bits with a 16-bit digit. VSG reports no errors and no warnings; `ghdl --synth` elaborates the core with
-this module in four configurations without latches.
+this module in ten configurations without latches.
 
 Findings:
 
 | Finding | Resolution |
 | --- | --- |
 | With a multiplier of two steps per block and a one-stage block queue the budget was exceeded by about 1.2 cycles per message | Three-stage block queue for multipliers of more than one step; the queue entry carries no byte counts (they are recovered from the length block) |
+
+## 3. Generic values
+
+Simulated: the VUnit configurations of `ocr_ghash_tb` and of `ocr_gcm_tb` (the digit of the maximum configuration).
+Synthesised: the configurations of `lint/synth_check.py` (`ghdl --synth`, no latch) through `ocr_core`.
+
+| Generic | Declared range | Simulated | Synthesised |
+| --- | --- | --- | --- |
+| `DataWidth_g` | 16, 32, 64, 128 | 16, 32, 64, 128 | 16, 32, 64, 128 |
+| `Digit_g` | power of two from `DataWidth_g` to 128 | 16 at 16 bits; 32 at 32 bits; 64 at 16, 32, 64 bits; 128 at 16, 64, 128 bits; `ocr_gcm_tb`: 128 at 32 bits | 16, 64, 128 |
+| `LenBits_g` | 8 to 32 | 8, 32 | 8, 16, 32 |

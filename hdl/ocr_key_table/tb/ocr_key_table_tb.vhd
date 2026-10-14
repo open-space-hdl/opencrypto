@@ -36,10 +36,12 @@ library work;
 ---------------------------------------------------------------------------------------------------
 entity ocr_key_table_tb is
     generic (
-        runner_cfg : string;
-        KeyBits_g  : positive := 256;
-        NumKeys_g  : positive := 4;
-        VecDir_g   : string
+        runner_cfg    : string;
+        KeyBits_g     : positive := 256;
+        NumKeys_g     : positive := 4;
+        ClkFreqHz_g   : real     := 100.0e6;
+        ScrubPeriod_g : real     := 0.0;
+        VecDir_g      : string
     );
 end entity;
 
@@ -48,10 +50,12 @@ end entity;
 ---------------------------------------------------------------------------------------------------
 architecture sim of ocr_key_table_tb is
 
-    constant ClkPeriod_c : time     := 10 ns;
-    constant SlotBits_c  : positive := slotBits(NumKeys_g);
+    constant ClkPeriod_c   : time := 1 sec / ClkFreqHz_g;
+    -- Clock cycles between two scrub passes (0: free-running scrubbers); every wait for a scrubber adds them
+    constant ScrubCycles_c : natural  := integer(ScrubPeriod_g * ClkFreqHz_g);
+    constant SlotBits_c    : positive := slotBits(NumKeys_g);
     -- Context source and job checker
-    constant Both_c      : std_logic_vector(TbChannels_c - 1 downto 0) := x"06";
+    constant Both_c        : std_logic_vector(TbChannels_c - 1 downto 0) := x"06";
 
     signal Clk             : std_logic;
     signal Rst             : std_logic                                 := '1';
@@ -89,7 +93,7 @@ architecture sim of ocr_key_table_tb is
 
 begin
 
-    test_runner_watchdog(runner, 20 ms);
+    test_runner_watchdog(runner, 2_000_000 * ClkPeriod_c);
 
     p_ecc : process (Clk) is
     begin
@@ -213,7 +217,7 @@ begin
             JobReadyStall <= stall;
             OcrVec_v.clearStats(0, ChCtx_c);
             tbStart(0, Both_c);
-            tbWaitDone(0, ChSink_c, 5 ms, "contexts");
+            tbWaitDone(0, ChSink_c, 500_000 * ClkPeriod_c, "contexts");
             check_value(OcrVec_v.cursor(0, ChSink_c), OcrVec_v.msgCount(0), ERROR, "jobs checked");
         end procedure;
 
@@ -388,7 +392,7 @@ begin
                 Zeroize <= '1';
                 syncClk;
                 Zeroize <= '0';
-                tbWaitDone(0, ChSink_c, 5 ms, "contexts around a zeroize");
+                tbWaitDone(0, ChSink_c, 500_000 * ClkPeriod_c, "contexts around a zeroize");
                 check_value(OcrVec_v.cursor(0, ChSink_c), OcrVec_v.msgCount(0), ERROR, "jobs around a zeroize");
 
             elsif run("test_load_during_traffic") then
@@ -405,7 +409,7 @@ begin
                     waitIdle;
                 end loop;
 
-                tbWaitDone(0, ChSink_c, 5 ms, "contexts");
+                tbWaitDone(0, ChSink_c, 500_000 * ClkPeriod_c, "contexts");
                 check_value(OcrVec_v.cursor(0, ChSink_c), OcrVec_v.msgCount(0), ERROR, "jobs checked");
                 checkCounters;
 
@@ -433,7 +437,7 @@ begin
                         waitIdle;
                     end if;
                     tbStart(0, Both_c, m + 1);
-                    tbWaitDone(0, ChSink_c, 1 ms, "context " & to_string(m));
+                    tbWaitDone(0, ChSink_c, 100_000 * ClkPeriod_c, "context " & to_string(m));
 
                     for i in 0 to 5 loop
                         syncClk;
@@ -453,7 +457,7 @@ begin
                 inject(0, "01");
                 waitIdle;
 
-                for i in 0 to 20 * maximum(2, NumKeys_g) loop
+                for i in 0 to 20 * maximum(2, NumKeys_g) + ScrubCycles_c loop
                     syncClk;
                 end loop;
 
@@ -461,7 +465,7 @@ begin
                 loadKey(0, 0);
                 waitIdle;
 
-                for i in 0 to 20 * maximum(2, NumKeys_g) loop
+                for i in 0 to 20 * maximum(2, NumKeys_g) + ScrubCycles_c loop
                     syncClk;
                 end loop;
 
@@ -476,7 +480,7 @@ begin
                 loadKey(0, 0);
                 waitIdle;
 
-                for i in 0 to 20 * maximum(2, NumKeys_g) loop
+                for i in 0 to 20 * maximum(2, NumKeys_g) + ScrubCycles_c loop
                     syncClk;
                 end loop;
 
@@ -484,7 +488,7 @@ begin
                 -- The corrected word reads without error
                 Sec0_v := SecCnt(0);
                 tbStart(0, Both_c, 1);
-                tbWaitDone(0, ChSink_c, 1 ms, "context");
+                tbWaitDone(0, ChSink_c, 100_000 * ClkPeriod_c, "context");
                 syncClk;
                 syncClk;
                 check_value(SecCnt(0), Sec0_v, ERROR, "no error at the read after the scrubber");
@@ -544,8 +548,10 @@ begin
 
     i_th : entity work.ocr_key_table_th
         generic map (
-            KeyBits_g => KeyBits_g,
-            NumKeys_g => NumKeys_g
+            KeyBits_g     => KeyBits_g,
+            NumKeys_g     => NumKeys_g,
+            ClkFreqHz_g   => ClkFreqHz_g,
+            ScrubPeriod_g => ScrubPeriod_g
         )
         port map (
             Clk             => Clk,

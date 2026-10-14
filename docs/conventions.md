@@ -101,6 +101,11 @@ names the clauses with their standard (`AES 5.1.3`, `GCM 6.4`, `CCSDS 3.4.2`) or
   test to the list of that option in place, so without the copy a test inherits the generics of earlier tests.
   `run.py` makes the copy and stops the run when a GHDL command does not carry exactly the generics of its
   configuration.
+- Generic ranges are verified, not only declared: every value of a generic that changes the structure (widths, key
+  lengths, numbers of units, booleans) runs in the regression, and the bounds of every numeric range are elaborated
+  and synthesised (`python lint/synth_check.py`). A value outside the declared range stops the elaboration (range
+  constraint or assertion). The verification report of every module lists the declared range, the simulated and
+  the synthesised values of its generics. A testbench clock follows a frequency generic of the design.
 - A side effect is never obtained by calling an impure function and discarding its result: QuestaSim may remove such
   a call. Protected types offer a procedure for it.
 - A random value is drawn into a variable before it is used in the actual of an unconstrained array parameter

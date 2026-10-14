@@ -13,9 +13,10 @@ carries a new key.
 | --- | --- | --- |
 | `ocr_aes_engine_tb` | `ocr_aes_engine_th` | `ocr_aes_engine` with a 12-bit tag at 100 MHz; request source and result checker; vector file per key length: FIPS 197 examples, keys and blocks of all zeros and all ones, 196 random keys and blocks |
 
-VUnit configurations `aes128_u1`, `aes128_u3`, `aes128_u10`, `aes192_u3`, `aes192_u12`, `aes256_u2`, `aes256_u4`,
-`aes256_u6` and `aes256_u14` run every test with every key length, one unit, the minimum and default numbers of the
-data widths and the full number of rounds. Simulator: GHDL; QuestaSim for code coverage.
+VUnit configurations `aes128_u1`, `aes128_u3`, `aes128_u5`, `aes128_u7`, `aes128_u8`, `aes128_u9`, `aes128_u10`,
+`aes192_u3`, `aes192_u11`, `aes192_u12`, `aes256_u2`, `aes256_u4`, `aes256_u6`, `aes256_u13` and `aes256_u14` run
+every test with every key length, one unit, the minimum and default numbers of the data widths, the full number of
+rounds and every number of units from 1 to 14. Simulator: GHDL; QuestaSim for code coverage.
 
 ## 3. Test cases
 

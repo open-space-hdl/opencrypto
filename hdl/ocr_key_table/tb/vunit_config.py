@@ -2,15 +2,21 @@
 # Copyright (c) 2026 by Julian Schneider
 # Authors: Julian Schneider
 # ---------------------------------------------------------------------------------------------------
-"""VUnit configurations of the ocr_key_table testbench: key lengths with one, three, four, 16 and 256 key slots."""
+"""VUnit configurations of the ocr_key_table testbench: key lengths with one, three, four, 16 and 256 key slots, and
+four slots with paced scrubbers."""
 
 CONFIGS = [(256, 4), (128, 1), (192, 3), (256, 16), (128, 256)]
+# Paced scrubbers: a clock of 1 MHz (the clock of the harness follows ClkFreqHz_g) and one scrub pass every 2 ms,
+# so one pass every 2000 clock cycles
+PACED = {"k256_n4_paced": (256, 4, {"ClkFreqHz_g": 1.0e6, "ScrubPeriod_g": 0.002})}
 
 
 def configure(lib, vectors):
     tb = lib.test_bench("ocr_key_table_tb")
+    dirs = {}
     for bits, keys in CONFIGS:
         d = vectors.DIR / "ocr_key_table" / f"k{bits}_n{keys}"
+        dirs[(bits, keys)] = d
         seed = 1000 * keys + bits
         last = keys - 1
         vectors.kt_set(d / "kt.txt", bits, keys, 300, seed=seed)
@@ -31,3 +37,8 @@ def configure(lib, vectors):
                 continue
             test.add_config(name=f"k{bits}_n{keys}",
                             generics={"KeyBits_g": bits, "NumKeys_g": keys, "VecDir_g": d.as_posix()})
+    for name, (bits, keys, extra) in PACED.items():
+        generics = {"KeyBits_g": bits, "NumKeys_g": keys, "VecDir_g": dirs[(bits, keys)].as_posix()}
+        generics.update(extra)
+        for test in tb.get_tests():
+            test.add_config(name=name, generics=generics)

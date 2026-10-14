@@ -38,8 +38,10 @@ library work;
 ---------------------------------------------------------------------------------------------------
 entity ocr_key_table_th is
     generic (
-        KeyBits_g : positive := 256;
-        NumKeys_g : positive := 4
+        KeyBits_g     : positive := 256;
+        NumKeys_g     : positive := 4;
+        ClkFreqHz_g   : real     := 100.0e6;
+        ScrubPeriod_g : real     := 0.0
     );
     port (
         Clk               : out   std_logic;
@@ -78,7 +80,8 @@ end entity;
 ---------------------------------------------------------------------------------------------------
 architecture sim of ocr_key_table_th is
 
-    constant ClkPeriod_c : time     := 10 ns;
+    -- The clock runs at ClkFreqHz_g, the frequency that sizes the pacer of the scrubbers
+    constant ClkPeriod_c : time     := 1 sec / ClkFreqHz_g;
     constant SlotBits_c  : positive := slotBits(NumKeys_g);
 
     signal Clk_i       : std_logic := '0';
@@ -112,8 +115,10 @@ begin
 
     i_dut : entity work.ocr_key_table
         generic map (
-            KeyBits_g => KeyBits_g,
-            NumKeys_g => NumKeys_g
+            KeyBits_g     => KeyBits_g,
+            NumKeys_g     => NumKeys_g,
+            ClkFreqHz_g   => ClkFreqHz_g,
+            ScrubPeriod_g => ScrubPeriod_g
         )
         port map (
             Clk               => Clk_i,

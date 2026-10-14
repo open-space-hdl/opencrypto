@@ -24,7 +24,7 @@ Simulator: GHDL; QuestaSim for code coverage.
 
 | Test ID | Description | Requirements |
 | --- | --- | --- |
-| `test_pack` (TC-PA-01) | Both vector files with 30 % cycles without valid and without ready, and with 50 % cycles without ready: every output beat as expected | PA-IF-01, PA-FN-01, PA-FN-02, PA-FN-03 |
+| `test_pack` (TC-PA-01) | Both vector files with 30 % cycles without valid and without ready, and with 50 % cycles without ready: every output beat as expected | PA-IF-01, PA-IF-02, PA-FN-01, PA-FN-02, PA-FN-03 |
 | `test_backpressure` (TC-PA-02) | 90 % cycles without ready at the output, 80 % cycles without valid at the input, and 50 % on both sides: every output beat as expected | PA-FN-04 |
 | `test_throughput` (TC-PA-03) | The 80 long messages without stall cycles: the cycles without input beat are at most the number of messages that need an extra output beat for their last bytes (computed from the section lengths) | PA-PF-01 |
 | `test_reset` (TC-PA-04) | Reset in the middle of the messages: no output of the message in progress; every message from the next one on is correct | PA-FN-05 |
@@ -33,10 +33,13 @@ Simulator: GHDL; QuestaSim for code coverage.
 
 | Requirement | Test cases |
 | --- | --- |
-| PA-IF-01, PA-FN-01, PA-FN-02, PA-FN-03 | TC-PA-01 |
+| PA-IF-01, PA-IF-02, PA-FN-01, PA-FN-02, PA-FN-03 | TC-PA-01 |
 | PA-FN-04 | TC-PA-01, TC-PA-02 |
 | PA-FN-05 | TC-PA-04 |
 | PA-PF-01 | TC-PA-03 |
+
+PA-IF-02 is checked for the legal values by every configuration; an illegal `DataWidth_g` stops the elaboration with
+an assertion of severity failure, which a simulation run cannot pass by construction.
 
 The packer behind the GCM data path is verified in `ocr_core` with the dense output (configurations `*_dense` of
 the core testbench, CO-FN-07): encryptions, decryptions, generated IVs, context errors, error injection, release

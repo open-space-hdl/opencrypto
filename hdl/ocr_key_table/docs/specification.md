@@ -19,6 +19,7 @@ subkeys have no read path.
 | KT-IF-03 | A slot query shall return the valid flag, the IV construction, the exhausted flag, the fixed field, the invocation counter and the double error flag of the slot, and never the key or the hash subkey; queries may follow each other in consecutive cycles, and every accepted query shall be answered. | GCM 5.1, 9.1 |
 | KT-IF-04 | The hash subkey of a load shall be requested on the hash subkey port with the key of the load and written into the slot with the result. | GCM 7.1 |
 | KT-IF-05 | The reset shall abort any load and erase every slot. | none (D7, D13) |
+| KT-IF-06 | `KeyBits_g` shall be 128, 192 or 256; any other value shall stop the elaboration. | AES 5 |
 
 ### 2.2 Key memories and key load (KT-1, KT-2)
 
@@ -66,5 +67,5 @@ subkeys have no read path.
 | --- | --- | --- | --- |
 | `KeyBits_g` | 256 | 128, 192, 256 | Key length |
 | `NumKeys_g` | 4 | 1 to 256 | Number of key slots; the slot number has max(1, ceil(log2(`NumKeys_g`))) bits |
-| `ClkFreqHz_g` | 100.0e6 | ≥ 1000 | Clock frequency, sizes the pacer of the scrubbers |
-| `ScrubPeriod_g` | 0.0 | ≥ 0 | 0: the scrubbers run in every clock cycle without access to their memory; > 0: one pass over all slots every `ScrubPeriod_g` seconds (1 ms granularity) |
+| `ClkFreqHz_g` | 100.0e6 | ≥ 1000 when `ScrubPeriod_g` > 0 | Clock frequency, sizes the pacer of the scrubbers |
+| `ScrubPeriod_g` | 0.0 | 0.0 or ≥ 0.001 | 0.0: the scrubbers run in every clock cycle without access to their memory; otherwise one pass over all slots every `ScrubPeriod_g` seconds (1 ms resolution; Open Logic stops the elaboration below 0.001) |

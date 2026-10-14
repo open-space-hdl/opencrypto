@@ -5,8 +5,13 @@
 """Synthesis check of OpenCrypto with GHDL: elaborates ocr_core in the default configuration (32 bits, AES-256, four
 key slots), at 128 bits with 16 key slots and the release buffer, at 16 bits with AES-128 and one key slot, at 64 bits
 with AES-192, eight key slots, the minimum numbers of AES units and GHASH digit and 16-bit byte counts, and with the
-dense output at 64 and 128 bits (the latter with the release buffer); and ocr_framer in its default configuration
-(32 bits, chunks of 4096 bytes) and at 128 bits with chunks of 1024 bytes and a buffer of four chunks.
+dense output at 64 and 128 bits (the latter with the release buffer). At the bounds of the numeric generics: the
+smallest core (16 bits, AES-128, two AES units, 16-bit GHASH digit, release buffer of 16 beats, dense output), the
+maximum numbers of AES units and GHASH digit at 32 bits with the dense output, 256 key slots with 8-bit byte counts and
+paced scrubbers, and the largest release buffer (65536 bytes); the AES engine with one unit. And ocr_framer in its
+default configuration (32 bits, chunks of 4096 bytes), at 128 bits with chunks of 1024 bytes and a buffer of four
+chunks, with one key slot and the smallest chunks (16 bytes), with 256 key slots and the largest chunks (65536 bytes)
+and with the largest chunk buffer (64 chunks).
 
 Usage: python lint/synth_check.py
 Uses the libraries compiled by the regression runner (run `python run.py --compile` first).
@@ -31,9 +36,18 @@ CONFIGS = [("ocr_core", {}),
            ("ocr_core", {"DataWidth_g": "64", "DenseOutput_g": "true"}),
            ("ocr_core", {"DataWidth_g": "128", "DenseOutput_g": "true", "ReleaseBuffer_g": "true",
                          "ReleaseBytes_g": "4096"}),
+           ("ocr_core", {"DataWidth_g": "16", "KeyBits_g": "128", "AesUnits_g": "2", "GhashDigit_g": "16",
+                         "ReleaseBuffer_g": "true", "ReleaseBytes_g": "32", "DenseOutput_g": "true"}),
+           ("ocr_core", {"AesUnits_g": "14", "GhashDigit_g": "128", "DenseOutput_g": "true"}),
+           ("ocr_core", {"NumKeys_g": "256", "LenBits_g": "8", "ScrubPeriod_g": "1.0e-3"}),
+           ("ocr_core", {"DataWidth_g": "128", "ReleaseBuffer_g": "true", "ReleaseBytes_g": "65536"}),
+           ("ocr_aes_engine", {"KeyBits_g": "128", "Units_g": "1"}),
            ("ocr_framer", {}),
            ("ocr_framer", {"DataWidth_g": "128", "NumKeys_g": "16", "ChunkBytes_g": "1024",
-                           "BufferChunks_g": "4"})]
+                           "BufferChunks_g": "4"}),
+           ("ocr_framer", {"DataWidth_g": "128", "NumKeys_g": "1", "ChunkBytes_g": "16"}),
+           ("ocr_framer", {"DataWidth_g": "16", "NumKeys_g": "256", "ChunkBytes_g": "65536"}),
+           ("ocr_framer", {"DataWidth_g": "16", "ChunkBytes_g": "32", "BufferChunks_g": "64"})]
 
 
 def synth(top, generics, out_dir):

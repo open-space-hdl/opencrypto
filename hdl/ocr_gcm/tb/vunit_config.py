@@ -3,22 +3,28 @@
 # Authors: Julian Schneider
 # ---------------------------------------------------------------------------------------------------
 """VUnit configurations of the ocr_gcm testbench: data widths and key lengths with the default numbers of AES
-units and GHASH digits, the minimum units and digit, the release buffer and 8-bit byte counts."""
+units and GHASH digits, the minimum and the maximum units and digit, the release buffer (with its minimum size) and
+8-bit byte counts."""
 
 # name: (data width, key bits, extra generics)
 DEFAULT = {
     "w16_aes256": (16, 256, {}),
     "w32_aes128": (32, 128, {}),
     "w32_aes192": (32, 192, {}),
+    "w64_aes128": (64, 128, {}),
     "w64_aes256": (64, 256, {}),
     "w128_aes128": (128, 128, {}),
+    "w128_aes192": (128, 192, {}),
     "w128_aes256": (128, 256, {}),
 }
 MINIMUM = {"w32_aes256_min": (32, 256, {"AesUnits_g": 4, "GhashDigit_g": 32})}
+MAXIMUM = {"w32_aes256_max": (32, 256, {"AesUnits_g": 14, "GhashDigit_g": 128})}
 RELEASE = {
     "w32_aes256_rel": (32, 256, {"ReleaseBuffer_g": True, "ReleaseBytes_g": 512}),
     "w128_aes256_rel": (128, 256, {"ReleaseBuffer_g": True, "ReleaseBytes_g": 1024}),
 }
+# The smallest release buffer: 16 beats of 32 bits
+RELEASE_MIN = {"w32_aes256_rel64": (32, 256, {"ReleaseBuffer_g": True, "ReleaseBytes_g": 64})}
 LENGTH = {"w32_aes128_len8": (32, 128, {"LenBits_g": 8})}
 
 TESTS_DEFAULT = ["test_gcm_spec", "test_encrypt", "test_decrypt", "test_mixed", "test_iv_section",
@@ -26,6 +32,7 @@ TESTS_DEFAULT = ["test_gcm_spec", "test_encrypt", "test_decrypt", "test_mixed", 
                  "test_hash_subkey", "test_reset", "test_backlog"]
 TESTS_MINIMUM = [t for t in TESTS_DEFAULT if not t.startswith("test_throughput")]
 TESTS_RELEASE = ["test_release", "test_ecc", "test_mixed", "test_throughput_decrypt", "test_format", "test_reject"]
+TESTS_RELEASE_MIN = ["test_release"]
 TESTS_LENGTH = ["test_length"]
 
 
@@ -53,6 +60,7 @@ def vector_sets(vectors, d, bits):
                            mode="mixed", len_bits=8)
     for size in (512, 1024):
         vectors.release_set(d / f"release_{size}.txt", bits, 60, seed=bits + 11, release_bytes=size)
+    vectors.release_set(d / "release_64.txt", bits, 60, seed=bits + 14, release_bytes=64, width=32)
 
 
 def configure(lib, vectors):
@@ -62,7 +70,8 @@ def configure(lib, vectors):
         vector_sets(vectors, d, bits)
         dirs[bits] = d
     tb = lib.test_bench("ocr_gcm_tb")
-    groups = [(DEFAULT, TESTS_DEFAULT), (MINIMUM, TESTS_MINIMUM), (RELEASE, TESTS_RELEASE), (LENGTH, TESTS_LENGTH)]
+    groups = [(DEFAULT, TESTS_DEFAULT), (MINIMUM, TESTS_MINIMUM), (MAXIMUM, TESTS_DEFAULT), (RELEASE, TESTS_RELEASE),
+              (RELEASE_MIN, TESTS_RELEASE_MIN), (LENGTH, TESTS_LENGTH)]
     for test in tb.get_tests():
         for configs, tests in groups:
             if test.name not in tests:

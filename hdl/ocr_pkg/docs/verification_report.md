@@ -23,8 +23,8 @@ affected. Since then every GHDL simulation has its own flags and `run.py` checks
 All test cases pass; every requirement of the specification is covered (see the verification plan). The cipher functions
 reproduce the examples of FIPS 197 (Appendix A, B and C) and 150 random blocks of pycryptodome for every key length; the
 GF(2<sup>128</sup>) functions reproduce Algorithm 1 of the GCM specification for every digit size and the GHASH values
-of the GCM test cases. VSG reports no errors and no warnings; `ghdl --synth` elaborates the core with this module in
-four configurations without latches.
+of the GCM test cases. VSG reports no errors and no warnings; `ghdl --synth` elaborates the core with this module in ten
+configurations without latches.
 
 Findings:
 

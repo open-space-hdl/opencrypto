@@ -20,10 +20,10 @@ affected. Since then every GHDL simulation has its own flags and `run.py` checks
 
 ## 2. Summary
 
-All test cases pass; every requirement of the specification is covered (see the verification plan). The packer
-behind the GCM data path is verified in the dense configurations of the core testbench (CO-FN-07, CO-PF-02). VSG
-reports no errors and no warnings; `ghdl --synth` elaborates the core with the dense output at 64 and 128 bits
-without latches.
+All test cases pass; every requirement of the specification is covered (see the verification plan). The packer behind
+the GCM data path is verified in the dense configurations of the core testbench (CO-FN-07, CO-PF-02). VSG reports no
+errors and no warnings; `ghdl --synth` elaborates the core with the dense output at 16, 32, 64 and 128 bits without
+latches.
 
 Throughput of the 80 long messages without stall cycles (TC-PA-03): the input pauses exactly once for every message
 that needs an extra output beat for its last bytes, and never otherwise.
@@ -40,3 +40,13 @@ Findings:
 | Finding | Resolution |
 | --- | --- |
 | A message whose last beat is an empty beat after bytes that filled whole beats ends with an extra beat without byte; the first vector set contained such messages | The output assembly of the core never sends them (an empty beat is the only beat of a message); the input format of PA-IF-01 states it and the architecture documents the behaviour. The vector generator no longer ends a message with bytes by an empty section |
+| `DataWidth_g` was not checked, and the packer was synthesised at 64 and 128 bits only | Assertion PA-IF-02; `lint/synth_check.py` synthesises the dense output at 16 and 32 bits as well |
+
+## 3. Generic values
+
+Simulated: the VUnit configurations of `ocr_packer_tb` and the dense configurations of `ocr_core_tb`. Synthesised: the
+configurations of `lint/synth_check.py` (`ghdl --synth`, no latch) through `ocr_core` with the dense output.
+
+| Generic | Declared range | Simulated | Synthesised |
+| --- | --- | --- | --- |
+| `DataWidth_g` | 16, 32, 64, 128 | 16, 32, 64, 128 | 16, 32, 64, 128 |

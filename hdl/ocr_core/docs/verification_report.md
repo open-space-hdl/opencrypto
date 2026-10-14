@@ -22,7 +22,7 @@ affected. Since then every GHDL simulation has its own flags and `run.py` checks
 
 All test cases pass; every requirement of the specification is covered and every seam between the modules is crossed
 (see the verification plan). Two cores in series return the input of the encrypting core at the output of the decrypting
-core (TC-CO-13). VSG reports no errors and no warnings; `ghdl --synth` elaborates the core with this module in four
+core (TC-CO-13). VSG reports no errors and no warnings; `ghdl --synth` elaborates the core with this module in ten
 configurations without latches.
 
 Throughput of back-to-back messages without stall cycles (TC-CO-10, TC-CO-11):
@@ -96,3 +96,30 @@ Findings:
 | QuestaSim, with stall cycles at the outputs: a double error in the output FIFO did not fail its encryption (the tag was not zeroed). The error flag was read only inside a procedure of the combinational process, and QuestaSim does not count such a signal to the sensitivity list of process (all) | The flag is a parameter of the procedure; the rule is part of the conventions; TC-CO-07 runs with stall cycles at the outputs |
 | The error injection into the key table through ECC_INJECT and the key table channels of the EDAC monitor were not crossed by a core test | TC-CO-08 injects single and double errors into the key, H and IV word of a load and into a job through the register file |
 | The throughput with the release buffer was measured for decryptions only, and back-to-back encryptions with generated IVs not at all | TC-CO-10 runs in the configurations with release buffer (one cycle more per message, CO-PF-04), TC-CO-15 measures messages of half the buffer and longer, TC-CO-14 encryptions with generated IVs (CO-PF-03) |
+| The core had never been synthesised with 256 key slots, 8-bit byte counts, paced scrubbers, the maximum numbers of AES units and GHASH digit or the bounds of the release buffer | `lint/synth_check.py` synthesises these bounds (section 3) |
+
+## 3. Generic values
+
+Declared ranges as in the user guide; a value outside them stops the elaboration. Simulated: the values of the VUnit
+configurations of `ocr_core_tb` and, where a module testbench covers further values, of that testbench. Synthesised: the
+configurations of `lint/synth_check.py` (`ghdl --synth`, no latch). `AesUnits_g` and `GhashDigit_g` set `Units_g` of the
+AES engine and `Digit_g` of the GHASH multiplier (the defaults of the width when they are 0); their full lists are in
+the reports of [ocr_aes](../../ocr_aes/docs/verification_report.md) and
+[ocr_ghash](../../ocr_ghash/docs/verification_report.md).
+
+| Generic | Declared range | Simulated | Synthesised |
+| --- | --- | --- | --- |
+| `DataWidth_g` | 16, 32, 64, 128 | 16, 32, 64, 128 | 16, 32, 64, 128 |
+| `KeyBits_g` | 128, 192, 256 | 128, 192, 256 | 128, 192, 256 |
+| `NumKeys_g` | 1 to 256 | 2, 4, 8; `ocr_key_table_tb`: 1, 3, 4, 16, 256 | 1, 4, 8, 16, 256 |
+| `AesUnits_g` | 0, ceil(Nr / R) to Nr | 0 (3, 6, 8, 10, 14 units); `ocr_gcm_tb`: 0 (4, 5, 6, 7, 10, 12, 14 units), 4 (minimum at 32 bits, AES-256), 14 (maximum at 32 bits); `ocr_aes_engine_tb`: 1 to 14 units | 0 (3, 6, 10, 14 units), 2 (minimum at 16 bits, AES-128), 6 (minimum at 64 bits, AES-192), 14 (maximum at 32 bits) |
+| `GhashDigit_g` | 0, power of two from `DataWidth_g` to 128 | 0 (64 at 16 and 32 bits, 128 at 64 and 128 bits); `ocr_gcm_tb`: 32 (minimum at 32 bits), 128 (maximum at 32 bits); `ocr_ghash_tb`: 16, 32, 64, 128 | 0, 16 (minimum at 16 bits), 64 (minimum at 64 bits), 128 (maximum at 32 bits) |
+| `LenBits_g` | 8 to 32 | 32; `ocr_gcm_tb`, `ocr_ghash_tb`: 8 | 8, 16, 32 |
+| `ReleaseBuffer_g` | false, true | false, true | false, true |
+| `ReleaseBytes_g` | power of two, 16 beats to 65536 | 512, 8192, 16384; `ocr_gcm_tb`: 64 (16 beats, minimum), 512, 1024 | 32 (16 beats, minimum), 4096, 8192, 65536 (maximum) |
+| `DenseOutput_g` | false, true | false, true | false, true |
+| `ClkFreqHz_g` | ≥ 1000 when `ScrubPeriod_g` > 0 | 100.0e6; `ocr_key_table_tb`: 1.0e6 | 100.0e6 |
+| `ScrubPeriod_g` | 0.0 or ≥ 0.001 | 0.0; `ocr_key_table_tb`: 0.002 | 0.0, 0.001 |
+
+65536 bytes is the largest release buffer that is elaborated and synthesised; the buffer sizes its counters from
+`ReleaseBytes_g`, so the bound is the verified maximum, not a limit of the design.

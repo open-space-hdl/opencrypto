@@ -484,19 +484,44 @@ def backlog_set(path, key_bits, count, seed):
     return vf.write()
 
 
-def release_set(path, key_bits, count, seed, release_bytes):
+def release_set(path, key_bits, count, seed, release_bytes, width=None):
     """Mixed messages for the release buffer: small ones (at most 146 bytes of output, at most 256 + 4 beats and so
     below a buffer of at least 512 bytes) and large ones (at least 2.5 times the buffer, OVERFLOW unless they fail
-    otherwise); some decryptions fail."""
+    otherwise); some decryptions fail. With width (bits of the stream) the buffer holds D = release_bytes / (width /
+    8) beats: the set starts with the messages of exactly D and D + 1 sectioned output beats of both directions (the
+    longest message that fits and the shortest that overflows), and the small messages have at most D beats."""
     rng = random.Random(seed)
     vf = VectorFile(path)
     vf.key(0, rand_bytes(rng, key_bits // 8))
+    if width is not None:
+        b = width // 8
+        depth = release_bytes // b
+
+        def beats(a_len, d_len, dec):
+            # Sectioned output beats: non-empty AAD and DATA sections, the TAG of an encryption
+            n = -(-a_len // b) + -(-d_len // b) + (0 if dec else 16 // b)
+            return max(1, n)
+
+        for dec, a_len in ((False, 0), (False, 5), (True, 0), (True, 5)):
+            fit = (depth - beats(a_len, 0, dec) + (1 if dec and a_len == 0 else 0)) * b
+            for d_len, over in ((fit, False), (fit + 1, True)):
+                assert beats(a_len, d_len, dec) == depth + over
+                aad, data, iv = rand_bytes(rng, a_len), rand_bytes(rng, d_len), rand_bytes(rng, 12)
+                if dec:
+                    c, t = gcm_encrypt(vf.slots[0].key, iv, aad, data)
+                    vf.decrypt(0, aad, c, t, iv)
+                else:
+                    vf.encrypt(0, aad, data, iv=iv)
+                if over:
+                    vf.override_last(OVERFLOW)
     for i in range(count):
         large = rng.random() < 0.2
         if large:
             a_len, d_len = rng.randint(0, 40), rng.randint(int(2.5 * release_bytes), int(3 * release_bytes))
         else:
             a_len, d_len = rng.randint(0, 40), rng.randint(0, 90)
+            while width is not None and beats(a_len, d_len, False) > depth:
+                a_len, d_len = rng.randint(0, 40), rng.randint(0, 90)
         aad, data, iv = rand_bytes(rng, a_len), rand_bytes(rng, d_len), rand_bytes(rng, 12)
         dec = rng.random() < 0.6
         if dec:

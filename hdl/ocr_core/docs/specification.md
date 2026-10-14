@@ -53,7 +53,7 @@ The requirements of the functions themselves are in the specifications of the mo
 | `GhashDigit_g` | 0 | 0, `DataWidth_g` to 128 | GHASH digit; 0 selects 128 for 64 and 128 bits, 64 otherwise |
 | `LenBits_g` | 32 | 8 to 32 | Width of the byte counts |
 | `ReleaseBuffer_g` | false | | Release buffer at the output |
-| `ReleaseBytes_g` | 4096 | power of two, at least 16 beats | Size of the release buffer in bytes |
+| `ReleaseBytes_g` | 4096 | power of two, 16 beats to 65536 | Size of the release buffer in bytes |
 | `DenseOutput_g` | false | | Dense output: the output messages leave as gapless byte strings |
-| `ClkFreqHz_g` | 100.0e6 | ≥ 1000 | Clock frequency, sizes the pacer of the key table scrubbers |
-| `ScrubPeriod_g` | 0.0 | ≥ 0 | Scrub period of the key table; 0 free-running |
+| `ClkFreqHz_g` | 100.0e6 | ≥ 1000 when `ScrubPeriod_g` > 0 | Clock frequency, sizes the pacer of the key table scrubbers |
+| `ScrubPeriod_g` | 0.0 | 0.0 or ≥ 0.001 | Scrub period of the key table in seconds; 0.0 free-running |
