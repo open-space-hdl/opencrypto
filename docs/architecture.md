@@ -53,7 +53,7 @@ are AXI4-Stream and the management interface is AXI4-Lite. The core runs on any 
 
 OpenCrypto is an open AES-GCM implementation that is based on the Open Logic VHDL Library. The code lives in
 [open-space-hdl/opencrypto](https://github.com/open-space-hdl/opencrypto) under the PSI HDL Library License, Version
-1.0, the licence of Open Logic. Open Logic is pinned to the tag `4.7.0-ft.3` of the branch `fault-tolerant` of
+1.0, the licence of Open Logic. Open Logic is pinned to the tag `4.7.0-ft.6` of the branch `fault-tolerant` of
 open-space-hdl/open-logic-ft, the fault-tolerant fork of Open Logic.
 
 ### References
@@ -64,7 +64,7 @@ open-space-hdl/open-logic-ft, the fault-tolerant fork of Open Logic.
 | \[GCM\] | NIST SP 800-38D, Recommendation for Block Cipher Modes of Operation: Galois/Counter Mode (GCM) and GMAC | November 2007 |
 | \[CCSDS\] | CCSDS 352.0-B-2, CCSDS Cryptographic Algorithms, Recommended Standard, Issue 2 | August 2019 |
 | \[SDLS\] | CCSDS 355.0-B-2, Space Data Link Security Protocol (informative: use of AES-GCM on space links) | July 2022 |
-| \[OLO\] | [Open Logic, fault-tolerant fork, branch fault-tolerant](https://github.com/open-space-hdl/open-logic-ft/tree/fault-tolerant) | 4.7.0-ft.3 |
+| \[OLO\] | [Open Logic, fault-tolerant fork, branch fault-tolerant](https://github.com/open-space-hdl/open-logic-ft/tree/fault-tolerant) | 4.7.0-ft.6 |
 
 ### Conventions
 
