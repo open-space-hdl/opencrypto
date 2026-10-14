@@ -97,6 +97,10 @@ names the clauses with their standard (`AES 5.1.3`, `GCM 6.4`, `CCSDS 3.4.2`) or
 - Tests observe ports and management interfaces only, never internal signals.
 - GHDL is the default simulator; QuestaSim (`python run.py --questa`) is used for code coverage
   ([coverage.md](coverage.md)). Every test passes in both simulators.
+- Every GHDL simulation gets its own copy of the option `ghdl.sim_flags`: VUnit 5.0.0.dev7 appends the generics of a
+  test to the list of that option in place, so without the copy a test inherits the generics of earlier tests.
+  `run.py` makes the copy and stops the run when a GHDL command does not carry exactly the generics of its
+  configuration.
 - A side effect is never obtained by calling an impure function and discarding its result: QuestaSim may remove such
   a call. Protected types offer a procedure for it.
 - A random value is drawn into a variable before it is used in the actual of an unconstrained array parameter
