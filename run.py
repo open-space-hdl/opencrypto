@@ -12,6 +12,9 @@ vunit_out/vectors and runs all testbenches.
 GHDL is the default simulator. `--questa` selects QuestaSim; `--questa --coverage` collects the code coverage
 (statements, branches, conditions, expressions, state machines) of the OpenCrypto sources and merges it into
 coverage/coverage.ucdb with the text report coverage/coverage_report.txt.
+
+`--compile-order` writes compile_order.txt (the synthesis sources of the library `opencrypto` in compile order) and
+exits without simulating.
 """
 
 import importlib.util
@@ -22,6 +25,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 VECTORS = ROOT / "vunit_out" / "vectors"
+COMPILE_ORDER_FILE = ROOT / "compile_order.txt"
 
 # QuestaSim installation used when --questa is given and VUNIT_MODELSIM_PATH is not set
 QUESTA_DEFAULT_PATH = r"D:\Microchip\Libero_SoC_2025.2\Libero_SoC\QuestaSim_Pro\win64"
@@ -30,6 +34,9 @@ QUESTA_DEFAULT_PATH = r"D:\Microchip\Libero_SoC_2025.2\Libero_SoC\QuestaSim_Pro\
 COVERAGE = "--coverage" in sys.argv
 if COVERAGE:
     sys.argv.remove("--coverage")
+COMPILE_ORDER = "--compile-order" in sys.argv
+if COMPILE_ORDER:
+    sys.argv.remove("--compile-order")
 if "--questa" in sys.argv:
     sys.argv.remove("--questa")
     os.environ["VUNIT_SIMULATOR"] = "modelsim"
@@ -139,13 +146,29 @@ def merge_coverage(results):
                    check=False)
 
 
+def write_compile_order(vu, lib):
+    """Writes compile_order.txt: the synthesis sources of the library opencrypto (hdl/<module>/src/) in the compile
+    order of the VUnit dependency scan, one path per line relative to the repository root, LF line ends."""
+    sources = [f for f in lib.get_source_files() if Path(f.name).parent.name == "src"]
+    lines = []
+    for f in vu.get_compile_order(sources):
+        rel = Path(f.name).resolve().relative_to(ROOT).as_posix()
+        if f.library.name == "opencrypto" and rel.startswith("hdl/") and "/src/" in rel:
+            lines.append(rel)
+    COMPILE_ORDER_FILE.write_bytes(("\n".join(lines) + "\n").encode("utf-8"))
+    print(f"{COMPILE_ORDER_FILE.name}: {len(lines)} files")
+
+
 def main():
-    ocr_vectors.selftest()
     vu = VUnit.from_argv()
     vu.add_vhdl_builtins()
     add_open_logic(vu)
     add_uvvm(vu)
     lib, modules = add_opencrypto(vu)
+    if COMPILE_ORDER:
+        write_compile_order(vu, lib)
+        return
+    ocr_vectors.selftest()
     apply_module_configs(lib, modules)
     set_simulator_options(vu)
     if COVERAGE:

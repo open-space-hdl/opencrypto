@@ -1,0 +1,17 @@
+hdl/ocr_pkg/src/ocr_regs_pkg.vhd
+hdl/ocr_pkg/src/ocr_pkg.vhd
+hdl/ocr_packer/src/ocr_packer.vhd
+hdl/ocr_mib/src/ocr_mib.vhd
+hdl/ocr_key_table/src/ocr_key_table.vhd
+hdl/ocr_ghash/src/ocr_ghash.vhd
+hdl/ocr_gcm/src/ocr_gcm_pkg.vhd
+hdl/ocr_gcm/src/ocr_gcm_tag.vhd
+hdl/ocr_gcm/src/ocr_gcm_output.vhd
+hdl/ocr_gcm/src/ocr_gcm_input.vhd
+hdl/ocr_gcm/src/ocr_gcm_combine.vhd
+hdl/ocr_framer/src/ocr_framer.vhd
+hdl/ocr_aes/src/ocr_aes_unit.vhd
+hdl/ocr_aes/src/ocr_aes_engine.vhd
+hdl/ocr_gcm/src/ocr_gcm_keystream.vhd
+hdl/ocr_gcm/src/ocr_gcm.vhd
+hdl/ocr_core/src/ocr_core.vhd

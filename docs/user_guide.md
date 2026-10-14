@@ -12,9 +12,12 @@ described in [architecture.md](architecture.md), the registers in the generated
 | Library | Sources | Order |
 | --- | --- | --- |
 | `olo` | Open Logic areas `base`, `axi` and `ft` of the submodule `open-logic/` | `open-logic/compile_order.txt` |
-| `opencrypto` | `hdl/<module>/src/*.vhd` of every module of `component_list.txt` | Modules in the order of `component_list.txt`; within a module packages first (`ocr_pkg.vhd`, `ocr_regs_pkg.vhd`, `ocr_gcm_pkg.vhd`) |
+| `opencrypto` | `hdl/<module>/src/*.vhd` of every module of `component_list.txt` | `compile_order.txt` |
 
-All sources are VHDL-2008 and contain no vendor primitive.
+All sources are VHDL-2008 and contain no vendor primitive. `compile_order.txt` in the repository root lists every
+synthesis source of the library `opencrypto` in compile order, one path per line relative to the repository root,
+like the file of the same name of Open Logic. `python run.py --compile-order` generates it from the dependency scan of
+VUnit, and the CI checks that it is current.
 
 ## 2. Generics
 
@@ -359,6 +362,7 @@ specifications.
 ```shell
 python run.py -p 4                          # regression with GHDL
 python run.py --questa --coverage -p 1      # code coverage with QuestaSim
+python run.py --compile-order               # compile_order.txt of the synthesis sources
 python lint/lint.py                         # VSG
 python lint/synth_check.py                  # synthesizability of the core and the framer with GHDL
 python tools/compliance.py --check          # traceability of FIPS 197, SP 800-38D and CCSDS 352.0-B-2

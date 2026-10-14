@@ -29,6 +29,10 @@ jobs:
         with:
           version: latest
           backend: mcode
+      - name: Compile order up to date
+        run: |
+          python run.py --compile-order
+          git diff --exit-code compile_order.txt
       - name: Run regression
         run: python run.py -p 4 --xunit-xml results.xml
       - name: Publish test results
