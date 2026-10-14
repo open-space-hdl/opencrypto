@@ -23,15 +23,16 @@ expected positions, IVs, ciphertexts and tags come from `tools/ocr_vectors.py`, 
 | `w64_c128_b3` | 64 | 128 | 3 | no | TC-FR-01 to TC-FR-05 |
 | `w128_c256_b4` | 128 | 256 | 4 | no | TC-FR-01 to TC-FR-05 |
 | `w32_c4096` | 32 | 4096 | 2 | no | TC-FR-01, TC-FR-03 |
-| `w32_c64_core` | 32 | 64 | 2 | AES-256 | TC-FR-06, TC-FR-07 |
-| `w16_c32_core` | 16 | 32 | 2 | AES-128 | TC-FR-06, TC-FR-07 |
-| `w64_c1024_core` | 64 | 1024 | 2 | AES-256 | TC-FR-06, TC-FR-07 |
-| `w128_c256_core` | 128 | 256 | 2 | AES-256 | TC-FR-06, TC-FR-07 |
+| `w32_c64_core` | 32 | 64 | 2 | AES-256 | TC-FR-06 to TC-FR-08 |
+| `w16_c32_core` | 16 | 32 | 2 | AES-128 | TC-FR-06 to TC-FR-08 |
+| `w64_c1024_core` | 64 | 1024 | 2 | AES-256 | TC-FR-06 to TC-FR-08 |
+| `w128_c256_core` | 128 | 256 | 2 | AES-256 | TC-FR-06 to TC-FR-08 |
+| `w128_c4096_core` | 128 | 4096 | 2 | AES-256 | TC-FR-08 |
 
-Vector files per configuration: 30 packets with the boundary lengths first (0, 1, C - 1, C, C + 1, 2 C, 2 C + 3,
-3 C, 15, 16, 17 bytes for chunks of C bytes), then random lengths up to 3 C; four long packets (8 C + 5, 5 C, 3 C + 1,
-2 C) for the throughput; 12 packets of one chunk for the error injection. Simulator: GHDL; QuestaSim for code
-coverage.
+Vector files per configuration: 30 packets with the boundary lengths first (0, 1, C - 1, C, C + 1, 2 C, 2 C + 3, 3 C,
+15, 16, 17 bytes for chunks of C bytes), then random lengths up to 3 C; four long packets (8 C + 5, 5 C, 3 C + 1, 2 C)
+for the throughput, without and with the core; 12 packets of one chunk for the error injection. Simulator: GHDL;
+QuestaSim for code coverage.
 
 ## 3. Test cases
 
@@ -44,6 +45,7 @@ coverage.
 | `test_reset` (TC-FR-05) | Reset in the middle of a packet: the packets from the next packet start on are correct, with one context per chunk | FR-FN-06 |
 | `test_encrypt` (TC-FR-06) | Framer and core: the 30 packets with 20 % stall cycles; every output message is IV ‖ AAD ‖ ciphertext ‖ tag of pycryptodome with the next generated IV, every status OK with the IV and the byte counts; the invocation counter of the slot advanced by the number of chunks | FR-IN-01 |
 | `test_ecc_core` (TC-FR-07) | Framer and core: single and double errors as in TC-FR-04; the chunks with a double error fail with FORMAT, error flag and their IV; the others are correct; ERR_FORMAT counts the failed chunks | FR-FT-01, FR-IN-01 |
+| `test_throughput_core` (TC-FR-08) | Framer and core: the four long packets (20 chunks) without stall cycles; from the last beat of the first chunk at the output of the core to the last beat of the last chunk exactly the sum of C(n) of the other chunks, exactly C(n) - ceil((n + 32) / B) cycles without output beat per chunk, at most 40 plus C(n) - ceil(n / B) cycles without input beat per chunk | FR-IN-02 |
 
 ## 4. Requirement coverage
 
@@ -55,6 +57,7 @@ coverage.
 | FR-FT-01 | TC-FR-04, TC-FR-07 |
 | FR-PF-01 | TC-FR-03 |
 | FR-IN-01 | TC-FR-06, TC-FR-07 |
+| FR-IN-02 | TC-FR-08 |
 
 FR-IF-02 is checked for the legal values by every configuration; an illegal `ChunkBytes_g` or `DataWidth_g` stops the
 elaboration with an assertion of severity failure, which a simulation run cannot pass by construction.
@@ -65,4 +68,4 @@ elaboration with an assertion of severity failure, which a simulation run cannot
 | --- | --- |
 | Framer contexts to the key table of the core: generated IVs, slot | TC-FR-06, TC-FR-07 |
 | Framer messages to the input parser of the core: AAD and DATA sections, IV section code of a double error | TC-FR-06, TC-FR-07 |
-| Output assembly to the output packer: dense output of encryptions with generated IV | TC-FR-06 |
+| Output assembly to the output packer: dense output of encryptions with generated IV | TC-FR-06, TC-FR-08 |

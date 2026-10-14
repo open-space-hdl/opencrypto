@@ -8,7 +8,7 @@
 import random
 
 ALONE = ["test_chunks", "test_backpressure", "test_throughput", "test_ecc", "test_reset"]
-CORE = ["test_encrypt", "test_ecc_core"]
+CORE = ["test_encrypt", "test_ecc_core", "test_throughput_core"]
 
 # name: (data width, chunk bytes, buffer chunks, key bits, with core, tests)
 CONFIGS = {
@@ -21,6 +21,7 @@ CONFIGS = {
     "w16_c32_core": (16, 32, 2, 128, True, CORE),
     "w64_c1024_core": (64, 1024, 2, 256, True, CORE),
     "w128_c256_core": (128, 256, 2, 256, True, CORE),
+    "w128_c4096_core": (128, 4096, 2, 256, True, ["test_throughput_core"]),
 }
 
 
@@ -33,6 +34,8 @@ def vector_sets(vectors, d, chunk, bits, core, seed):
         ecc_lengths = [rng.randint(1, chunk) for _ in range(12)]
         vectors.framer_set(d / "ecc_core.txt", bits, chunk, ecc_lengths, seed=seed + 2, core=True,
                            poisoned={m for m in range(12) if m % 4 in (1, 3)})
+        vectors.framer_set(d / "tp_core.txt", bits, chunk, [8 * chunk + 5, 5 * chunk, 3 * chunk + 1, 2 * chunk],
+                           seed=seed + 3, core=True)
     else:
         vectors.framer_set(d / "chunks.txt", bits, chunk, lengths, seed=seed + 1, core=False)
         vectors.framer_set(d / "long.txt", bits, chunk, [8 * chunk + 5, 5 * chunk, 3 * chunk + 1, 2 * chunk],

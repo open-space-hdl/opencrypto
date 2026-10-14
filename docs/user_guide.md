@@ -2,10 +2,9 @@
 
 This guide describes how to integrate the OpenCrypto core `ocr_core` and its framer `ocr_framer` into an FPGA
 design: sources, generics, clock and reset, interfaces, the programming sequence, the protection scope, the
-integration constraints with the obligations that the user of AES-GCM keeps, and the conformance statement for FIPS
-197, NIST SP 800-38D and CCSDS 352.0-B-2. The architecture is
-described in [architecture.md](architecture.md), the registers in the generated
-[register map](../hdl/ocr_mib/docs/register_map.md).
+performance, the integration constraints with the obligations that the user of AES-GCM keeps, and the conformance
+statement for FIPS 197, NIST SP 800-38D and CCSDS 352.0-B-2. The architecture is described in
+[architecture.md](architecture.md), the registers in the generated [register map](../hdl/ocr_mib/docs/register_map.md).
 
 ## 1. Sources
 
@@ -55,11 +54,8 @@ convention); synchronise its release to `Clk`, for example with `olo_base_reset_
 (triplicated synchroniser). After the reset the key table erases every slot (`NumKeys_g` clock cycles,
 `STATUS.BUSY` = '1'); contexts and key loads are accepted afterwards. No key survives a reset.
 
-Every stream transfers one beat per clock cycle while its partner is ready. For back-to-back messages the bottleneck
-side (the output of encryptions, the input of decryptions) transfers one beat per clock cycle after the initial
-latency, for every message length, with the default numbers of AES units and GHASH digits. Exception: consecutive
-encryptions with generated IVs need at least three output beats per message (the IV generation unit updates the
-counter of the slot once per message). At 100 MHz and 32 bits the core carries 3.2 Gbit/s.
+Every stream transfers one beat per clock cycle while its partner is ready; section 7 gives the clock cycles per
+message and per chunk.
 
 ## 4. Interfaces
 
@@ -188,11 +184,11 @@ The position is in bits 7:6 of the first AAD byte; all other AAD bits are '0':
 | "11" | The only chunk of its packet |
 
 The framer buffers every chunk completely before it sends it, because the position "last" is known only at the end
-of a chunk. The buffer holds `BufferChunks_g` chunks, so it takes the next chunk while one leaves; the output carries
-the AAD beats in addition to the chunk, and the input pauses for at most ceil(4 / (`DataWidth_g` / 8)) + 2 cycles
-per chunk while the core keeps up. The chunk buffer and the position FIFO are SECDED-protected: a single error is
-corrected; a double error marks the affected beat with the IV section code, which the core rejects (FORMAT, error
-flag, zero tag), so a corrupted chunk never leaves with a valid tag.
+of a chunk. The buffer holds `BufferChunks_g` chunks, so it takes the next chunk while one leaves. With an output
+that is always ready the input pauses for at most ceil(4 / (`DataWidth_g` / 8)) + 2 cycles per chunk; in front of
+the core it follows the rate of the core (section 7.2). The chunk buffer and the position FIFO are SECDED-protected:
+a single error is corrected; a double error marks the affected beat with the IV section code, which the core rejects
+(FORMAT, error flag, zero tag), so a corrupted chunk never leaves with a valid tag.
 
 With the dense output every chunk leaves the core as one byte string:
 
@@ -207,7 +203,7 @@ IV and position fill one 128-bit block, so the ciphertext starts on a beat bound
 decrypts every chunk on its own: IV from bytes 0 to 11, AAD from bytes 12 to 15, tag from the last 16 bytes; it
 discards a chunk whose tag fails, orders the chunks by the invocation counter (a gap marks a lost chunk) and finds
 the packet boundaries in the positions. Every chunk consumes one invocation of the slot: save the counter regularly
-(section 7, GCM 9.1).
+(section 8, GCM 9.1).
 
 ### 4.7 Example: encrypted image packets
 
@@ -233,7 +229,7 @@ bytes; every packet is unsegmented, the image boundaries are in the authenticate
 6. Send contexts and messages; take the output messages and the status of every message.
 7. In operation read the counters (cleared by a write, all cleared by `CTRL.CLEAR`), `ECC_STATUS` and `ECC_COUNT`
    (channel selected by `ECC_SELECT`). Save the invocation counter of every slot with generated IVs regularly (step
-   4) to non-volatile memory, ahead of the operational value (section 7).
+   4) to non-volatile memory, ahead of the operational value (section 8).
 8. To change the key of a slot, stop sending contexts of the slot, wait for the status of its last message and load
    the slot again. `CTRL.ZEROIZE` erases every slot and the staging registers at once.
 
@@ -270,7 +266,89 @@ The integrator:
 The ECC paths are verified in simulation by error injection. Whether the protection as a whole meets the
 requirements of a mission is shown by a radiation test with the core in operation (TRL 5).
 
-## 7. Integration constraints
+## 7. Performance
+
+The figures are clock cycles of `Clk`. They follow from the RTL, and the test cases in the tables measure them in
+simulation. B = `DataWidth_g` / 8 is the number of bytes of a beat; a stream with one beat per cycle carries 8 B bits
+per cycle, for example 12.8 Gbit/s at 128 bits and 100 MHz. The clock frequency that a device reaches is a result of
+synthesis and timing closure ([roadmap](roadmap.md), TRL 4) and not part of these figures.
+
+### 7.1 Core
+
+Every stream transfers one beat per clock cycle while its partner is ready. A message with A bytes of AAD and P
+bytes of DATA has these beats (a section that the message does not have has no beat, an empty section has one):
+
+| Interface | Encryption | Decryption |
+| --- | --- | --- |
+| `S_In` | ceil(A / B) + ceil(P / B) | ceil(A / B) + ceil(P / B) + 16 / B |
+| `M_Out`, sectioned | g · ceil(12 / B) + ceil(A / B) + ceil(P / B) + 16 / B | ceil(A / B) + ceil(P / B) |
+| `M_Out`, dense (`DenseOutput_g`) | ceil((12 g + A + P + 16) / B) | ceil((A + P) / B) |
+
+g is 1 for a generated IV (IV section at the output) and 0 otherwise; a message without any output byte is one beat.
+
+For back-to-back messages the side with more beats is the bottleneck: the output of encryptions, the input of
+decryptions. After the start of a sequence it transfers one beat in every cycle, so a message takes as many clock
+cycles as it has beats on that side (the sectioned beats for encryptions), and the other side pauses for the
+difference. The parts of a message cost, with the default numbers of AES units and GHASH digits:
+
+| Part | Clock cycles per message on the bottleneck side | Test |
+| --- | --- | --- |
+| AAD | ceil(A / B), on both sides | TC-CO-10, TC-CO-11 |
+| DATA | ceil(P / B), on both sides | TC-CO-10, TC-CO-11 |
+| Tag | 16 / B, at the output of encryptions and at the input of decryptions | TC-CO-10, TC-CO-11 |
+| Generated IV | ceil(12 / B) output beats. Consecutive encryptions with generated IVs need at least three output beats per message (the IV generation unit updates the counter of the slot once per message) | TC-CO-14 |
+| J0 (pre-counter block) | None: E(K, J0) takes one block of the AES engine per message, in a cycle without keystream request | TC-CO-10, TC-CO-14 |
+| Dense output | Encryptions take the cycles of the sectioned output and send fewer beats in them, plus one cycle when 12 g + A + P is not a multiple of B (the last beat does not fit into the output beat with the bytes before it). Decryptions lose at most one input cycle per message. Latency: one cycle | TC-CO-10, TC-CO-11, TC-CO-14, TC-PA-03 |
+| Release buffer (`ReleaseBuffer_g`) | One to two cycles per message while the buffer holds two consecutive messages (2 M ≤ D for messages of M sectioned output beats in a buffer of D = `ReleaseBytes_g` / B beats). With 2 M > D a message takes up to 3 M - D + 4 cycles, because the next message waits for the space of the one before. A message leaves only when its last beat is in the buffer | TC-CO-10, TC-CO-11, TC-CO-15 |
+| Start of a sequence | At most 40 cycles without a beat in total | TC-CO-10, TC-CO-11 |
+
+Size `ReleaseBytes_g` for at least two of the longest messages. With fewer AES units or a smaller GHASH digit than
+the defaults, a message takes at least (ceil(P / 16) + 1) · Nr / `AesUnits_g` cycles (keystream blocks and J0, Nr =
+10, 12 or 14 rounds, TC-AE-03) and at least 128 / `GhashDigit_g` · (ceil(A / 16) + ceil(P / 16) + 1) cycles (blocks
+and length block, TC-GH-03); the largest of these figures and the beats sets the rate.
+
+Contexts: one per message, handed over before or with its message. The key table resolves one context per clock
+cycle with an external IV and one per two cycles with a generated IV (TC-KT-09); up to four resolved contexts wait in
+its job FIFO. The key slot can change from message to message without a lost cycle: the throughput tests draw the
+slot of every message from up to three slots (TC-CO-10, TC-CO-11). The throughput of mixed sequences of encryptions
+and decryptions and of key loads during traffic is not characterised.
+
+Every core has its own key table and data path, so N cores carry N times the rate of one core. Cores that use the
+same key need distinct fixed fields (section 8).
+
+### 7.2 Framer and core
+
+The framer hands the core one message per chunk of n bytes (n = `ChunkBytes_g`, the last chunk of a packet has the
+remaining 1 to `ChunkBytes_g` bytes). With the dense output of the core:
+
+| Point | Beats per chunk | Bytes per chunk |
+| --- | --- | --- |
+| `S_In` of the framer | ceil(n / B) | n |
+| `M_Out` of the framer, `S_In` of the core | ceil(4 / B) + ceil(n / B) | n + 4 (AAD) |
+| `M_Out` of the core | ceil((n + 32) / B) | n + 32 (IV 12, AAD 4, tag 16) |
+
+With an output that is always ready the core sets the pace, and every chunk takes exactly
+
+C(n) = ceil(12 / B) + ceil(4 / B) + ceil(n / B) + 16 / B clock cycles,
+
+plus one when n is not a multiple of B (only the last chunk of a packet can be). The framer takes ceil(n / B) input
+beats in these cycles and pauses for the rest. TC-FR-08 measures C(n) exactly at all four data widths. For chunks of
+4096 bytes:
+
+| `DataWidth_g` | C(4096) | Input beats | Output beats | Payload share of the cycles | Payload at 100 MHz |
+| --- | --- | --- | --- | --- | --- |
+| 16 | 2064 | 2048 | 2064 | 99.2 % | 1.59 Gbit/s |
+| 32 | 1032 | 1024 | 1032 | 99.2 % | 3.18 Gbit/s |
+| 64 | 517 | 512 | 516 | 99.0 % | 6.34 Gbit/s |
+| 128 | 259 | 256 | 258 | 98.8 % | 12.65 Gbit/s |
+
+The payload rate scales with the clock frequency. A slower source sets a lower rate; the core then waits for the
+chunks. A chunk leaves after its last byte has entered the framer (store and forward), so its latency is at least
+ceil(n / B) cycles after its first input beat; the IV beats of a chunk can leave before, and the output then pauses
+until the rest of the chunk follows. The framer alone, with an output that is always ready, pauses its input for at
+most ceil(4 / B) + 2 cycles per chunk (TC-FR-03).
+
+## 8. Integration constraints
 
 The core implements the cryptographic functions of GCM. NIST SP 800-38D places further requirements on the system
 that uses it; the table lists them with the support of the core and what the user keeps.
@@ -299,9 +377,9 @@ Further constraints:
 | Use AES-256 for new CCSDS missions | CCSDS 352.0-B-2 3.2.1; AES-128 is allowed for existing implementations (3.2.2), AES-192 is not part of CCSDS 352.0-B-2 |
 | TMR of the synthesis tool enabled for the core | The core protects its key table, buffers and framer buffers itself and relies on TMR for all other logic (section 6) |
 
-## 8. Conformance
+## 9. Conformance
 
-### 8.1 AES (FIPS 197)
+### 9.1 AES (FIPS 197)
 
 | Clause | Function | Implementation |
 | --- | --- | --- |
@@ -313,7 +391,7 @@ Further constraints:
 | 6.2 | Keying restrictions | Every key is accepted (AES has no weak keys) |
 | 6.4 | Implementation variations | Iterative round units, any number from the minimum to Nr |
 
-### 8.2 GCM (NIST SP 800-38D)
+### 9.2 GCM (NIST SP 800-38D)
 
 OpenCrypto conforms to both categories of GCM 10: GCM (messages with DATA) and GMAC (messages without DATA). The
 supported lengths (GCM 5.2.1.1, 5.2.1.2):
@@ -327,7 +405,7 @@ supported lengths (GCM 5.2.1.1, 5.2.1.2):
 
 | Clause | Function | Implementation |
 | --- | --- | --- |
-| 5.1 | Block cipher | AES; keys secret (section 7) |
+| 5.1 | Block cipher | AES; keys secret (section 8) |
 | 5.2, 5.2.1, 5.2.2 | GCM-AE, GCM-AD, GMAC, input and output data | Implemented |
 | 5.3, 6.2 to 6.5 | Primitives: inc32, multiplication, GHASH, GCTR | Implemented |
 | 7.1, 7.2 | Authenticated encryption and decryption | Implemented; FAIL is the status AUTH with the error flag, and the release buffer withholds the plaintext |
@@ -341,7 +419,7 @@ supported lengths (GCM 5.2.1.1, 5.2.1.2):
 | 9.2 | Operational considerations | User |
 | 10 | Conformance | GCM and GMAC with the lengths above |
 
-### 8.3 CCSDS 352.0-B-2 (AES-GCM)
+### 9.3 CCSDS 352.0-B-2 (AES-GCM)
 
 | Clause | Requirement | Implementation |
 | --- | --- | --- |
@@ -357,7 +435,7 @@ The [compliance matrix](compliance.md) lists the requirements and the test cases
 interpretations of the standards are listed in the sections "Interpretation of the standard" of the module
 specifications.
 
-## 9. Verification and tools
+## 10. Verification and tools
 
 ```shell
 python run.py -p 4                          # regression with GHDL

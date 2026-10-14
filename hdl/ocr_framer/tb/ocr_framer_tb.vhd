@@ -64,6 +64,8 @@ architecture sim of ocr_framer_tb is
     constant Bytes_c     : positive := DataWidth_g / 8;
     constant SlotBits_c  : positive := slotBits(NumKeys_g);
     constant AadBeats_c  : positive := (4 + Bytes_c - 1) / Bytes_c;
+    -- Framer and core: cycles of the initial latency without beat (the bound of ocr_core)
+    constant Latency_c   : natural := 40;
     -- Framer alone: message source, context checker, message sink; with the core: source, message and status sink
     constant Alone_c     : std_logic_vector(TbChannels_c - 1 downto 0) := x"07";
     constant WithCore_c  : std_logic_vector(TbChannels_c - 1 downto 0) := x"0D";
@@ -109,6 +111,7 @@ begin
         variable Sts_v : std_logic_vector(31 downto 0);
         variable Fix_v : std_logic_vector(31 downto 0);
         variable Cnt_v : std_logic_vector(63 downto 0);
+        variable T_v   : time;
 
         -- The sequencer acts 1 ns after the clock edge, after the models
         procedure syncClk is
@@ -168,6 +171,39 @@ begin
         impure function chunks return natural is
         begin
             return OcrVec_v.msgCount(0);
+        end function;
+
+        -- Framer and core: clock cycles of a chunk of n bytes with an always ready output (FR-IN-02): the IV, AAD, DATA
+        -- and TAG beats of the encryption, plus one cycle of the packer when n is not a multiple of the beat
+        impure function chunkCycles (n : natural) return natural is
+        begin
+            if n mod Bytes_c /= 0 then
+                return tbBeats(12, Bytes_c) + AadBeats_c + tbBeats(n, Bytes_c) + 16 / Bytes_c + 1;
+            end if;
+            return tbBeats(12, Bytes_c) + AadBeats_c + tbBeats(n, Bytes_c) + 16 / Bytes_c;
+        end function;
+
+        -- Sum over the chunks from first on of the cycles of a chunk (cycles), of the cycles minus the input beats
+        -- (input) or of the cycles minus the dense output beats (output)
+        impure function chunkSum (
+            what  : string;
+            first : natural := 0) return natural is
+            variable R_v   : natural := 0;
+            variable Len_v : natural;
+        begin
+
+            for m in first to chunks - 1 loop
+                Len_v := OcrVec_v.inLen(0, m, 0);
+                if what = "output" then
+                    R_v := R_v + chunkCycles(Len_v) - tbBeats(32 + Len_v, Bytes_c);
+                elsif what = "input" then
+                    R_v := R_v + chunkCycles(Len_v) - tbBeats(Len_v, Bytes_c);
+                else
+                    R_v := R_v + chunkCycles(Len_v);
+                end if;
+            end loop;
+
+            return R_v;
         end function;
 
         -- Error injection into buffer sel: "01" single, "11" double error into the next word written
@@ -357,6 +393,45 @@ begin
 
                 checkDone("ecc_core.txt");
                 regCheck(AXILITE_VVCT, 0, RegErrFormat_c, std_logic_vector(to_unsigned(N_v / 2, 32)), "ERR_FORMAT");
+
+            elsif run("test_throughput_core") then
+                -- Framer and core without stall cycles: from the end of the first chunk at the output (latency: its IV
+                -- leaves before the chunk is buffered completely) every chunk takes exactly the cycles of its
+                -- encryption at the core; the input pauses for the beats that the core adds, the dense output for the
+                -- beats that the packing saves
+                tbLoad(0, VecDir_g & "/tp_core.txt");
+                regLoadAll(AXILITE_VVCT, 0, 0, KeyBits_g);
+
+                for ch in 0 to 3 loop
+                    tbSetStall(0, ch, 0.0);
+                    OcrVec_v.clearStats(0, ch);
+                end loop;
+
+                tbStart(0, models);
+
+                while OcrVec_v.cursor(0, ChSink_c) < 1 loop
+                    syncClk;
+                end loop;
+
+                -- The last beat of the first chunk was in the cycle before
+                OcrVec_v.clearStats(0, ChSink_c);
+                T_v := now - 1 ns;
+                tbWaitDone(0, ChSink_c, 20 ms, "tp_core.txt");
+                checkDone("tp_core.txt");
+                T_v := OcrVec_v.lastTime(0, ChSink_c) - T_v;
+                N_v := T_v / ClkPeriod_c;
+                log(ID_SEQUENCER, "chunks " & to_string(chunks) & ", cycles of a chunk of " & to_string(ChunkBytes_g) &
+                    " bytes " & to_string(chunkCycles(ChunkBytes_g)) & ", output cycles after the first chunk " &
+                    to_string(N_v) & ", expected " & to_string(chunkSum("cycles", 1)));
+                log(ID_SEQUENCER, "input beats " & to_string(OcrVec_v.beats(0, ChSource_c)) & ", gaps " &
+                    to_string(OcrVec_v.gaps(0, ChSource_c)) & ", cycles minus beats " & to_string(chunkSum("input")));
+                log(ID_SEQUENCER, "output beats after the first chunk " & to_string(OcrVec_v.beats(0, ChSink_c)) &
+                    ", gaps " & to_string(OcrVec_v.gaps(0, ChSink_c)) & ", cycles minus beats " &
+                    to_string(chunkSum("output", 1)));
+                check_value(N_v, chunkSum("cycles", 1), ERROR, "output cycles of the chunks after the first one");
+                check_value(OcrVec_v.gaps(0, ChSink_c), chunkSum("output", 1), ERROR, "cycles without output beat");
+                check_value(OcrVec_v.gaps(0, ChSource_c) <= Latency_c + chunkSum("input"), ERROR,
+                            "cycles without input beat");
             end if;
 
         end loop;

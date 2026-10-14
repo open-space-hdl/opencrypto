@@ -2,13 +2,13 @@
 
 ## 1. Test results
 
-Run on 2026-10-13 with GHDL 6.0.0 (mcode), VUnit 5.0.0.dev7, UVVM (commit 4f1e13bf), pycryptodome 3.23.0, Open Logic
-4.7.0-ft.3: `python run.py -p 2 "*ocr_core_tb*"` (part of the full regression of 348 test runs). The six
+Run on 2026-10-14 with GHDL 6.0.0 (mcode), VUnit 5.0.0.dev7, UVVM (commit 4f1e13bf), pycryptodome 3.23.0, Open Logic
+4.7.0-ft.3: `python run.py -p 2 "*ocr_core_tb*"` (part of the full regression of 360 test runs). The six
 configurations without the dense output passed on 2026-10-11 with Open Logic 4.7.0-ft.1 as well.
 
 | Testbench | Configurations | Tests | Passed |
 | --- | --- | --- | --- |
-| `ocr_core_tb` | 10 (see the verification plan), 4 of them with the dense output | 64 | 64 |
+| `ocr_core_tb` | 10 (see the verification plan), 4 of them with the dense output | 71 | 71 |
 
 QuestaSim (Questa Sim Microchip Edition 2024.3): the same tests pass in the regression with code coverage
 (`python run.py --questa --coverage -p 1`); the coverage is in [docs/coverage.md](../../../docs/coverage.md).
@@ -28,15 +28,50 @@ Throughput of back-to-back messages without stall cycles (TC-CO-10, TC-CO-11):
 | `w32_k256_n4` | 2605, 14 | 2618, 4 |
 | `w64_k192_n8` | 1221, 10 | 1263, 4 |
 | `w128_k256_n4` | 705, 10 | 711, 4 |
-| `w32_k256_n4_rel` | | 2618, 4 |
+| `w32_k256_n4_rel` | 2605, 154 (allowed 160) | 2618, 4 |
 | `w16_k128_n2_dense` | 4581, 77 (allowed 171) | 5533, 4 |
 | `w32_k256_n4_dense` | 2595, 99 (allowed 170) | 2618, 4 |
 | `w128_k256_n4_dense` | 693, 118 (allowed 172) | 711, 4 |
-| `w64_k192_n8_dense_rel` | | 1263, 4 |
+| `w64_k192_n8_dense_rel` | 1206, 142 (allowed 295) | 1263, 4 |
 
 With the dense output the encryption output has fewer beats (the packing saves the partial beats at the section
 ends) and correspondingly more cycles without a beat; the allowed number is 40 plus the saved beats plus one per
-message (CO-PF-02). The decryption input is not slowed down.
+message (CO-PF-02). The decryption input is not slowed down. The release buffer stalls its read side one cycle per
+message, so its configurations allow one more cycle per message (CO-PF-04); of the 120 encryptions at 32 bits, 114
+took exactly one cycle more than their beats, the others waited until they were complete after a shorter message.
+
+Back-to-back encryptions with generated IVs in the shape of framer chunks (TC-CO-14, 16 messages with 4 bytes of AAD;
+cycles from the last beat of the first message to the last beat of the last one):
+
+| Configuration | DATA bytes | Sectioned output beats per message | Cycles | Expected |
+| --- | --- | --- | --- | --- |
+| `w128_k256_n4` | 256 | 19 | 285 | 285 |
+| `w128_k256_n4` | 1024 | 67 | 1005 | 1005 |
+| `w128_k256_n4_dense` | 256 | 19 (18 dense beats) | 285 | 285 |
+| `w128_k256_n4_dense` | 1024 | 67 (66 dense beats) | 1005 | 1005 |
+| `w64_k192_n8` | 256 | 37 | 555 | 555 |
+| `w64_k192_n8` | 1024 | 133 | 1995 | 1995 |
+
+Every message takes exactly its sectioned output beats: neither the IV generation nor J0 costs a cycle (CO-PF-03).
+
+Release buffer with messages of half the buffer and longer (TC-CO-15, 12 messages per set; cycles of the 11 messages
+after the first one on the bottleneck side; M sectioned output beats of a message, B its beats on the bottleneck
+side, D beats of the buffer):
+
+| Configuration | Set | M | B | D | Cycles | Bound | Per message |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `w32_k256_n4_rel` | Encryptions of 240 bytes | 64 | 64 | 128 | 725 | 748 | 65.9 |
+| `w32_k256_n4_rel` | Encryptions of 400 bytes | 104 | 104 | 128 | 2068 | 2068 | 188 |
+| `w32_k256_n4_rel` | Decryptions of 256 bytes | 64 | 68 | 128 | 748 | 770 | 68 |
+| `w32_k256_n4_rel` | Decryptions of 400 bytes | 100 | 104 | 128 | 1904 | 1936 | 173.1 |
+| `w64_k192_n8_dense_rel` | Encryptions of 240 bytes | 32 | 32 | 64 | 373 | 396 | 33.9 |
+| `w64_k192_n8_dense_rel` | Encryptions of 400 bytes | 52 | 52 | 64 | 1056 | 1056 | 96 |
+| `w64_k192_n8_dense_rel` | Decryptions of 256 bytes | 32 | 34 | 64 | 374 | 396 | 34 |
+| `w64_k192_n8_dense_rel` | Decryptions of 400 bytes | 50 | 52 | 64 | 914 | 990 | 83.1 |
+
+While two messages fit into the buffer (2 M ≤ D), an encryption takes one to two cycles more than its beats and a
+decryption keeps the rate of its input. With 2 M > D the next message waits for the space of the one before: the
+encryptions of 400 bytes take exactly 3 M - D + 4 cycles each.
 
 Findings:
 
@@ -44,3 +79,4 @@ Findings:
 | --- | --- |
 | QuestaSim, with stall cycles at the outputs: a double error in the output FIFO did not fail its encryption (the tag was not zeroed). The error flag was read only inside a procedure of the combinational process, and QuestaSim does not count such a signal to the sensitivity list of process (all) | The flag is a parameter of the procedure; the rule is part of the conventions; TC-CO-07 runs with stall cycles at the outputs |
 | The error injection into the key table through ECC_INJECT and the key table channels of the EDAC monitor were not crossed by a core test | TC-CO-08 injects single and double errors into the key, H and IV word of a load and into a job through the register file |
+| The throughput with the release buffer was measured for decryptions only, and back-to-back encryptions with generated IVs not at all | TC-CO-10 runs in the configurations with release buffer (one cycle more per message, CO-PF-04), TC-CO-15 measures messages of half the buffer and longer, TC-CO-14 encryptions with generated IVs (CO-PF-03) |

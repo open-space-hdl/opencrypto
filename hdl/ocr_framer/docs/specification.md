@@ -41,6 +41,7 @@ that a receiver decrypts and verifies on its own and puts back together in the o
 | ID | Requirement | Clauses |
 | --- | --- | --- |
 | FR-IN-01 | The framer in front of `ocr_core` with the dense output shall encrypt every chunk with GCM-AE under the next IV of the IV generation unit of the slot, with the 4-byte position as AAD; every output message shall be the gapless byte string IV ‖ AAD ‖ ciphertext ‖ tag. | GCM 7.1, 8.2.1 |
+| FR-IN-02 | With the core (dense output, default numbers of AES units and GHASH digits) and an output and a status receiver that are always ready, every chunk of n bytes after the first one shall take exactly C(n) = ceil(12 / B) + ceil(4 / B) + ceil(n / B) + 16 / B clock cycles at the output of the core, plus one when n is not a multiple of B (B = `DataWidth_g` / 8); the output shall pause exactly C(n) - ceil((n + 32) / B) cycles per chunk, and the input of the framer at most 40 cycles plus C(n) - ceil(n / B) per chunk. | none (D3) |
 
 ## 3. Interpretation of the standard
 
