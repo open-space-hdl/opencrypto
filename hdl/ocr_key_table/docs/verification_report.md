@@ -9,8 +9,9 @@ Run on 2026-10-11 with GHDL 6.0.0 (mcode), VUnit 5.0.0.dev7, UVVM (commit 4f1e13
 | --- | --- | --- | --- |
 | `ocr_key_table_tb` | 5 (AES-256 with 4 and 16 slots, AES-128 with 1 and 256 slots, AES-192 with 3 slots) | 49 | 49 |
 
-QuestaSim (Questa Sim Microchip Edition 2024.3): the same tests pass in the regression with code coverage
-(`python run.py --questa --coverage -p 1`); the coverage is in [docs/coverage.md](../../../docs/coverage.md).
+QuestaSim (Questa Sim Microchip Edition 2024.3): the same tests pass on 2026-10-14 without and with code coverage
+(`python run.py --questa -p 1`, `python run.py --questa --coverage -p 1`); the coverage is in
+[docs/coverage.md](../../../docs/coverage.md).
 
 ## 2. Summary
 

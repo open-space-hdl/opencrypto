@@ -27,12 +27,10 @@ Closure rules:
 
 ## 2. Result
 
-Run on 2026-10-13: 348 tests (76 test cases in their configurations), all passed, 67 minutes; the framer tests ran
-once more after the extension of TC-FR-02 (section 3) and their coverage is merged into the result. Numbers are
-covered/total bins per file; bold marks a metric with misses. The register package contains no statements of its
-own; the statements of `ocr_core.vhd` are the connections of the sectioned and the dense output. The throughput
-test cases TC-CO-14 to TC-CO-16 and TC-FR-08, added on 2026-10-14, measure clock cycles of existing paths and change
-no RTL; the result stays the coverage of the sources.
+Run on 2026-10-14: 362 tests (80 test cases in their configurations), all passed, 46 minutes; the same tests pass
+without code coverage as well (53 minutes). Numbers are covered/total bins per file; bold marks a metric with misses.
+The register package contains no statements of its own; the statements of `ocr_core.vhd` are the connections of the
+sectioned and the dense output.
 
 | File | Statements | Branches | FSM States | FSM Transitions | Conditions | Expressions |
 | --- | --- | --- | --- | --- | --- | --- |

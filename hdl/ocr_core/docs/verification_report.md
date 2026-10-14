@@ -10,8 +10,9 @@ configurations without the dense output passed on 2026-10-11 with Open Logic 4.7
 | --- | --- | --- | --- |
 | `ocr_core_tb` | 12 (see the verification plan), 6 of them with the dense output | 73 | 73 |
 
-QuestaSim (Questa Sim Microchip Edition 2024.3): the same tests pass in the regression with code coverage
-(`python run.py --questa --coverage -p 1`); the coverage is in [docs/coverage.md](../../../docs/coverage.md).
+QuestaSim (Questa Sim Microchip Edition 2024.3): the same tests pass on 2026-10-14 without and with code coverage
+(`python run.py --questa -p 1`, `python run.py --questa --coverage -p 1`); the coverage is in
+[docs/coverage.md](../../../docs/coverage.md).
 
 ## 2. Summary
 
