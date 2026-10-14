@@ -3,12 +3,12 @@
 ## 1. Test results
 
 Run on 2026-10-14 with GHDL 6.0.0 (mcode), VUnit 5.0.0.dev7, UVVM (commit 4f1e13bf), pycryptodome 3.23.0, Open Logic
-4.7.0-ft.3: `python run.py -p 2 "*ocr_core_tb*"` (part of the full regression of 360 test runs). The six
+4.7.0-ft.3: `python run.py -p 2 "*ocr_core_tb*"` (part of the full regression of 362 test runs). The six
 configurations without the dense output passed on 2026-10-11 with Open Logic 4.7.0-ft.1 as well.
 
 | Testbench | Configurations | Tests | Passed |
 | --- | --- | --- | --- |
-| `ocr_core_tb` | 10 (see the verification plan), 4 of them with the dense output | 71 | 71 |
+| `ocr_core_tb` | 12 (see the verification plan), 6 of them with the dense output | 73 | 73 |
 
 QuestaSim (Questa Sim Microchip Edition 2024.3): the same tests pass in the regression with code coverage
 (`python run.py --questa --coverage -p 1`); the coverage is in [docs/coverage.md](../../../docs/coverage.md).
@@ -72,6 +72,17 @@ side, D beats of the buffer):
 While two messages fit into the buffer (2 M ≤ D), an encryption takes one to two cycles more than its beats and a
 decryption keeps the rate of its input. With 2 M > D the next message waits for the space of the one before: the
 encryptions of 400 bytes take exactly 3 M - D + 4 cycles each.
+
+Release buffer with framer chunks at 128 bits (TC-CO-16, 16 encryptions with generated IVs of 4 bytes of AAD and 4096
+bytes of DATA, M = 259 sectioned beats; cycles of the 15 messages after the first one):
+
+| Configuration | D | Cycles | Expected | Per chunk |
+| --- | --- | --- | --- | --- |
+| `w128_k256_n4_dense_rel8k` | 512 | 4035 | 15 · (3 M - D + 4) = 4035 | 269 |
+| `w128_k256_n4_dense_rel16k` | 1024 | 3900 | 15 · (M + 1) = 3900 | 260 |
+
+Without the release buffer the same chunks take 259 cycles (TC-CO-14 at 1024 bytes, TC-FR-08 at 4096 bytes). A buffer
+that holds one chunk but not two costs 10 cycles per chunk, a buffer of two chunks one cycle.
 
 Findings:
 

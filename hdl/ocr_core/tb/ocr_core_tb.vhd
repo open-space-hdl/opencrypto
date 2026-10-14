@@ -278,8 +278,21 @@ begin
             return B_v + 2;
         end function;
 
-        -- Sum over the messages after the first one of the expected cycles (ivgen) or of the bound of the release
-        -- buffer (release)
+        -- Release buffer, encryptions of one length (TC-CO-16): exact cycles of message m, its output cycles plus the
+        -- stall cycle of the buffer while the buffer holds two messages (2 M <= D), else 3 M - D + 4
+        impure function relChunkCycles (m : natural) return natural is
+            constant D_c : natural := ReleaseBytes_g / (DataWidth_g / 8);
+            variable M_v : natural;
+        begin
+            M_v := msgBeats(m, "output");
+            if 2 * M_v <= D_c then
+                return outCycles(m) + 1;
+            end if;
+            return 3 * M_v + 4 - D_c;
+        end function;
+
+        -- Sum over the messages after the first one of the expected cycles (ivgen, chunks) or of the bound of the
+        -- release buffer (release)
         impure function sumCycles (what : string) return natural is
             variable R_v : natural := 0;
         begin
@@ -287,6 +300,8 @@ begin
             for m in 1 to OcrVec_v.msgCount(0) - 1 loop
                 if what = "release" then
                     R_v := R_v + relCycles(m);
+                elsif what = "chunks" then
+                    R_v := R_v + relChunkCycles(m);
                 else
                     R_v := R_v + outCycles(m);
                 end if;
@@ -614,6 +629,16 @@ begin
                     ", expected " & to_string(sumCycles("ivgen")));
                 check_value(Span_v, sumCycles("ivgen"), ERROR, "cycles of the messages after the first one");
             end loop;
+
+        elsif run("test_throughput_release_chunks") then
+            -- Release buffer of 8192 or 16384 bytes at 128 bits: back-to-back framer chunks of 4096 bytes (generated
+            -- IVs, 4 bytes of AAD, M = 259 sectioned beats) take exactly 3 M - D + 4 cycles when the buffer holds one
+            -- chunk but not two, and M + 1 when it holds two
+            measureSet("chunk_4096.txt", ChSink_c);
+            log(ID_SEQUENCER, "sectioned output beats of a chunk " & to_string(msgBeats(0, "output")) &
+                ", buffer beats " & to_string(ReleaseBytes_g / (DataWidth_g / 8)) & ", cycles after the first chunk " &
+                to_string(Span_v) & ", expected " & to_string(sumCycles("chunks")));
+            check_value(Span_v, sumCycles("chunks"), ERROR, "cycles of the chunks after the first one");
 
         elsif run("test_reset") then
             -- A reset while messages are in the core erases the keys; after a new load the messages are correct

@@ -276,7 +276,8 @@ synthesis and timing closure ([roadmap](roadmap.md), TRL 4) and not part of thes
 ### 7.1 Core
 
 Every stream transfers one beat per clock cycle while its partner is ready. A message with A bytes of AAD and P
-bytes of DATA has these beats (a section that the message does not have has no beat, an empty section has one):
+bytes of DATA has these beats; at the input an empty section has one beat and a section that the message does not
+have none, the output carries no empty section:
 
 | Interface | Encryption | Decryption |
 | --- | --- | --- |
@@ -299,7 +300,7 @@ difference. The parts of a message cost, with the default numbers of AES units a
 | Generated IV | ceil(12 / B) output beats. Consecutive encryptions with generated IVs need at least three output beats per message (the IV generation unit updates the counter of the slot once per message) | TC-CO-14 |
 | J0 (pre-counter block) | None: E(K, J0) takes one block of the AES engine per message, in a cycle without keystream request | TC-CO-10, TC-CO-14 |
 | Dense output | Encryptions take the cycles of the sectioned output and send fewer beats in them, plus one cycle when 12 g + A + P is not a multiple of B (the last beat does not fit into the output beat with the bytes before it). Decryptions lose at most one input cycle per message. Latency: one cycle | TC-CO-10, TC-CO-11, TC-CO-14, TC-PA-03 |
-| Release buffer (`ReleaseBuffer_g`) | One to two cycles per message while the buffer holds two consecutive messages (2 M ≤ D for messages of M sectioned output beats in a buffer of D = `ReleaseBytes_g` / B beats). With 2 M > D a message takes up to 3 M - D + 4 cycles, because the next message waits for the space of the one before. A message leaves only when its last beat is in the buffer | TC-CO-10, TC-CO-11, TC-CO-15 |
+| Release buffer (`ReleaseBuffer_g`) | One to two cycles per message while the buffer holds two consecutive messages (2 M ≤ D for messages of M sectioned output beats in a buffer of D = `ReleaseBytes_g` / B beats). With 2 M > D a message takes up to 3 M - D + 4 cycles, because the next message waits for the space of the one before. A message leaves only when its last beat is in the buffer | TC-CO-10, TC-CO-11, TC-CO-15, TC-CO-16 |
 | Start of a sequence | At most 40 cycles without a beat in total | TC-CO-10, TC-CO-11 |
 
 Size `ReleaseBytes_g` for at least two of the longest messages. With fewer AES units or a smaller GHASH digit than
@@ -342,14 +343,14 @@ beats in these cycles and pauses for the rest. TC-FR-08 measures C(n) exactly at
 | 64 | 517 | 512 | 516 | 99.0 % | 6.34 Gbit/s |
 | 128 | 259 | 256 | 258 | 98.8 % | 12.65 Gbit/s |
 
-The payload rate scales with the clock frequency. A slower source sets a lower rate; the core then waits for the
-chunks. With the release buffer the core holds the C(n) sectioned beats of a chunk: a chunk takes one cycle more
-while the buffer holds two chunks, so choose `ReleaseBytes_g` as the power of two of at least 2 · B · C(n) bytes, for
-example 16384 bytes for chunks of 4096 bytes at 128 bits (260 cycles per chunk). A buffer of 8192 bytes holds one
-chunk but not two, and a chunk then takes 3 · 259 - 512 + 4 = 269 cycles (section 7.1). A chunk leaves after its last byte has entered the framer (store and forward), so its latency is at least
-ceil(n / B) cycles after its first input beat; the IV beats of a chunk can leave before, and the output then pauses
-until the rest of the chunk follows. The framer alone, with an output that is always ready, pauses its input for at
-most ceil(4 / B) + 2 cycles per chunk (TC-FR-03).
+The payload rate scales with the clock frequency. A slower source sets a lower rate; the core then waits for the chunks.
+With the release buffer the core holds the C(n) sectioned beats of a chunk: a chunk takes one cycle more while the
+buffer holds two chunks, so choose `ReleaseBytes_g` as the power of two of at least 2 · B · C(n) bytes, for example
+16384 bytes for chunks of 4096 bytes at 128 bits (260 cycles per chunk). A buffer of 8192 bytes holds one chunk but not
+two, and a chunk then takes 3 · 259 - 512 + 4 = 269 cycles (TC-CO-16). A chunk leaves after its last byte has entered
+the framer (store and forward), so its latency is at least ceil(n / B) cycles after its first input beat; the IV beats
+of a chunk can leave before, and the output then pauses until the rest of the chunk follows. The framer alone, with an
+output that is always ready, pauses its input for at most ceil(4 / B) + 2 cycles per chunk (TC-FR-03).
 
 ## 8. Integration constraints
 

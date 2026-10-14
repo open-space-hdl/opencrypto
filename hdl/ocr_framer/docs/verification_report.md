@@ -3,7 +3,7 @@
 ## 1. Test results
 
 Run on 2026-10-14 with GHDL 6.0.0 (mcode), VUnit 5.0.0.dev7, UVVM (commit 4f1e13bf), pycryptodome 3.23.0, Open Logic
-4.7.0-ft.3: `python run.py -p 2 "*ocr_framer_tb*"` (part of the full regression of 360 test runs).
+4.7.0-ft.3: `python run.py -p 2 "*ocr_framer_tb*"` (part of the full regression of 362 test runs).
 
 | Testbench | Configurations | Tests | Passed |
 | --- | --- | --- | --- |

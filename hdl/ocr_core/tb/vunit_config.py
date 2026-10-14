@@ -29,6 +29,11 @@ CONFIGS = {
     "w16_k128_n2_dense": (16, 128, 2, {"DenseOutput_g": True}, SUBSET),
     "w64_k192_n8_dense_rel": (64, 192, 8, {"DenseOutput_g": True, "ReleaseBuffer_g": True, "ReleaseBytes_g": 512},
                               RELEASE),
+    # Release buffer for framer chunks of 4096 bytes: holds one chunk (8192 bytes) or two (16384 bytes)
+    "w128_k256_n4_dense_rel8k": (128, 256, 4, {"DenseOutput_g": True, "ReleaseBuffer_g": True, "ReleaseBytes_g": 8192},
+                                 ["test_throughput_release_chunks"]),
+    "w128_k256_n4_dense_rel16k": (128, 256, 4, {"DenseOutput_g": True, "ReleaseBuffer_g": True,
+                                                "ReleaseBytes_g": 16384}, ["test_throughput_release_chunks"]),
 }
 
 
@@ -59,7 +64,7 @@ def configure(lib, vectors):
                                       ("rel_dec_half", 256, True), ("rel_dec_long", 400, True)):
                 vectors.fixed_set(d / f"{rel_name}.txt", bits, 12, seed=seed + 10, data_len=length, decrypt=dec)
             # Chunks of a framer: 4 bytes of AAD, generated IVs
-            for n in (256, 1024):
+            for n in (256, 1024, 4096):
                 vectors.fixed_set(d / f"chunk_{n}.txt", bits, 16, seed=seed + 11, data_len=n, aad_len=4, ivgen=True)
             made[key] = d
         generics = {"DataWidth_g": width, "KeyBits_g": bits, "NumKeys_g": keys, "VecDir_g": d.as_posix()}

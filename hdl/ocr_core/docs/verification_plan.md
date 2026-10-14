@@ -27,15 +27,17 @@ the vector file.
 | `w128_k256_n4_dense` | 128 | 256 | 4 | dense output | TC-CO-01, 03 to 05, 10 to 12, 14 |
 | `w16_k128_n2_dense` | 16 | 128 | 2 | dense output | TC-CO-01, 03 to 05, 10, 11 |
 | `w64_k192_n8_dense_rel` | 64 | 192 | 8 | dense output, release buffer of 512 bytes | TC-CO-01, 03, 10, 11, 15 |
+| `w128_k256_n4_dense_rel8k` | 128 | 256 | 4 | dense output, release buffer of 8192 bytes | TC-CO-16 |
+| `w128_k256_n4_dense_rel16k` | 128 | 256 | 4 | dense output, release buffer of 16384 bytes | TC-CO-16 |
 
 Vector files per key length and number of slots: 120 messages of both directions on up to three slots with 30 % modified
 tags, AAD or ciphertexts; 60 encryptions with generated IVs; the context errors between correct messages; 8 messages
 after a zeroize; the error injection messages of the data path and of the key table; 120 encryptions and 120 decryptions
 for the throughput; 12 encryptions of 240 and of 400 bytes and 12 decryptions of 256 and of 400 bytes for the release
-buffer; 16 encryptions with generated IVs of 4 bytes of AAD and 256 or 1024 bytes of DATA (the messages of a framer); 80
-encryptions for the series test. With the dense output the message sink concatenates the expected sections of every
-message and checks the gapless byte string, the section of the first byte of every beat, `Last` and the error flag.
-Simulator: GHDL; QuestaSim for code coverage.
+buffer; 16 encryptions with generated IVs of 4 bytes of AAD and 256, 1024 or 4096 bytes of DATA (the messages of a
+framer); 80 encryptions for the series test. With the dense output the message sink concatenates the expected sections
+of every message and checks the gapless byte string, the section of the first byte of every beat, `Last` and the error
+flag. Simulator: GHDL; QuestaSim for code coverage.
 
 ## 3. Test cases
 
@@ -55,6 +57,7 @@ Simulator: GHDL; QuestaSim for code coverage.
 | `test_reset` (TC-CO-12) | Reset while messages are in the core: keys erased; after a reload all remaining messages are correct | CO-FN-06, CO-FN-07 |
 | `test_throughput_ivgen` (TC-CO-14) | 16 back-to-back encryptions with generated IVs, 4 bytes of AAD and 256 bytes of DATA, then 16 with 1024 bytes, without stall cycles: from the last beat of the first message to the last beat of the last one exactly the sum of the sectioned output beats of the other messages (plus one per message whose last dense beat needs the extra beat of the packer) | CO-PF-03 |
 | `test_throughput_release` (TC-CO-15) | Release buffer of 128 or 64 beats: 12 back-to-back encryptions of half the buffer and of more than half, 12 decryptions of half the buffer and of more than half, without stall cycles: after the first message every set within the sum of max(B + 2, 3 M - D + 4) | CO-PF-04 |
+| `test_throughput_release_chunks` (TC-CO-16) | Release buffer of 8192 and of 16384 bytes at 128 bits: 16 back-to-back encryptions with generated IVs, 4 bytes of AAD and 4096 bytes of DATA (framer chunks, M = 259 sectioned beats), without stall cycles: after the first message exactly 3 M - D + 4 cycles per message with a buffer of one chunk (2 M > D) and exactly M + 1 with a buffer of two chunks | CO-PF-04 |
 | `test_series` (TC-CO-13) | Core B decrypts the 80 encryptions of core A with 10 % and 20 % stall cycles: the output of core B is the input of core A, DECRYPTIONS of core B | CO-FN-05 |
 
 ## 4. Requirement coverage
@@ -73,7 +76,7 @@ Simulator: GHDL; QuestaSim for code coverage.
 | CO-PF-01 | TC-CO-10, TC-CO-11 |
 | CO-PF-02 | TC-CO-10, TC-CO-11 (dense configurations) |
 | CO-PF-03 | TC-CO-14 |
-| CO-PF-04 | TC-CO-10, TC-CO-15 (configurations with release buffer) |
+| CO-PF-04 | TC-CO-10, TC-CO-15, TC-CO-16 (configurations with release buffer) |
 | CO-FT-01 | TC-CO-07, TC-CO-08 |
 | CO-IRQ-01 | TC-CO-09 |
 
