@@ -169,7 +169,7 @@ Five properties of the standards shape the architecture more than any single fea
 | P2 | Streams everywhere | Every data path between blocks is a valid / ready stream (Open Logic AXI4-Stream conventions). A path into a pipeline that cannot stall uses credits: a request is issued only when the buffer behind the pipeline has room for its result. |
 | P3 | One clock domain | All blocks run in `Clk`. |
 | P4 | One management interface | Key loading, configuration, status and counters live in one register file behind one AXI4-Lite port, generated from a single register description (VHDL package, documentation, C header). |
-| P5 | Fault tolerance by construction | All buffers and tables are `olo_ft_*` entities (SECDED ECC); the key table is scrubbed. Round keys are computed from the key with every block. State machines have a defined recovery state. ECC events are counted; a double error is contained and reported in the status of the message. |
+| P5 | Fault tolerance by construction | All buffers and tables are `olo_ft_*` entities (SECDED ECC); the key table is scrubbed. Round keys are computed from the key with every block. State machines have a defined recovery state. ECC events are counted; a double error is contained and reported in the status of the message. All other logic relies on the TMR of the synthesis tool ([user guide](user_guide.md), section 6). |
 | P6 | Line rate | Every path accepts one beat per clock cycle while its output is ready, and the bottleneck side of back-to-back messages transfers one beat per clock cycle (D3). |
 | P7 | Messages are self-describing | The section of every beat travels in `TUser`; lengths are not announced in advance. |
 | P8 | The direction is a property of the message | Encryption and decryption share the data path; the context of each message selects the direction, the key slot and the IV. |
@@ -276,7 +276,7 @@ the IV that was used, and the numbers of AAD and DATA bytes. Codes in order of p
 | D10 | Optional release buffer (`ReleaseBuffer_g`): an `olo_ft_fifo_packet` behind the output assembly that drops every message whose status is not OK and every message longer than the buffer | A decrypted message leaves the core only after its tag was verified (GCM 7.2 step 8) |
 | D11 | One status per message with one code; the code of the highest precedence wins; every code is counted in the register file | Deterministic and testable error reporting |
 | D12 | A failed encryption emits the TAG section as zeros; a message that its context rejects is consumed and replaced by one empty output beat | A failed encryption can never carry a valid tag; message boundaries are kept for the consumer |
-| D13 | The protocol state machines have a defined recovery state, without TMR: the `when others` branch leads to it from an illegal state, and the reset restarts the core from any state | Same as the other Open Space HDL cores; registers of the control paths are protected by the TMR of the synthesis tool where the mission requires it |
+| D13 | The protocol state machines have a defined recovery state: the `when others` branch leads to it from an illegal state, and the reset restarts the core from any state. All logic outside the memories and buffers relies on the TMR of the synthesis tool; the core adds no TMR of its own | Same as the other Open Space HDL cores and the Open Logic ft entities; the protection scope is listed in the [user guide](user_guide.md), section 6 |
 | D14 | Optional dense output (`DenseOutput_g`): an output packer behind the output assembly (and the release buffer) closes the gaps at the section ends; it shifts the bytes by the residual of the previous beats, one rotation per beat | A packet service or a memory interface takes the message as a byte string without gaps; the gaps arise only at section ends, so a small packer suffices, not a general byte compactor; the sectioned format stays the default for two cores in series |
 | D15 | Framer in front of the core (`ocr_framer`): chunks of `ChunkBytes_g` bytes, each one GCM message with a generated IV and the 4-byte chunk position as AAD; store and forward of every chunk in an FT buffer, because the position "last" is known only at the end of a chunk and the AAD precedes the DATA | Long streams (compressed images) are encrypted in self-contained messages of bounded size: buffers of a few chunks instead of whole images, one packet per chunk below the size limits of the packet services, a lost chunk costs only that chunk; the IV counter numbers the chunks and the authenticated position marks the packet boundaries for the receiver. The chunker is the general entity `olo_base_chunker`; the position and the contexts stay outside the cryptographic core |
 
@@ -298,9 +298,10 @@ a message that arrives meanwhile waits.
 | Registers of the AES units, the GHASH multiplier, the combiner and the tag stage | Any | Encryption: a wrong ciphertext block or tag, which the receiver detects with its tag verification. Decryption: a wrong keystream block corrupts the plaintext of one block without changing the verdict; an upset in GHASH or in the tag stage fails the message with AUTH | Encryption: at the receiver; decryption: not detected for the keystream |
 | Control registers (state machines, counters, credits) | Any | The `when others` branch returns an illegal state to its recovery state; a corrupted counter or credit can corrupt or stall a message; the reset recovers from any state | Not detected by the core |
 
-The memories and buffers hold most of the state and are fully protected. The residual risk lies in the registers of
-the data path and the control: where the mission requires it, the integrator applies the TMR of the synthesis tool to
-the core (D13), and a receiver always verifies the tag.
+The memories and buffers hold most of the state and are protected by ECC. The registers of the data path and the
+control rely on the TMR of the synthesis tool, which the integrator enables for the core (D13,
+[user guide](user_guide.md), section 6); the table shows the effect of an upset in them without TMR. A receiver always
+verifies the tag.
 
 ### Internal interfaces
 
@@ -407,7 +408,7 @@ A module is one group of blocks with its own specification, verification plan, t
 | --- | --- |
 | No fault-tolerant flow-control handler (`olo_base_flowctrl_handler` uses a FIFO without ECC) | Credit counters in front of the AES engine with `olo_ft_fifo_sync` behind it (IN-2, D6) |
 | No cryptographic primitives | AE-1, GH-1 and CM-1 in OpenCrypto |
-| No TMR register helper | Recovery state of every state machine (D13) |
+| No TMR register helper | The regular logic relies on the TMR of the synthesis tool, as in Open Logic; every state machine has a recovery state (D13) |
 
 ## 9 Verification architecture
 
