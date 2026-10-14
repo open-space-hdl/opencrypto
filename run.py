@@ -46,6 +46,28 @@ else:
     os.environ.setdefault("VUNIT_SIMULATOR", "ghdl")
 
 from vunit import VUnit  # noqa: E402  (import after the simulator selection)
+from vunit.sim_if.ghdl import GHDLInterface  # noqa: E402
+
+
+def own_sim_flags(get_command):
+    """VUnit 5.0.0.dev7 appends the generics of a test to the list of the option ghdl.sim_flags in place, and all
+    configurations share that list, so a GHDL simulation inherited the generics of the tests started before it. Every
+    simulation gets its own copy of the list, and the command must carry exactly the generics of its configuration."""
+
+    def wrapper(self, config, *args, **kwargs):
+        config.sim_options = {**config.sim_options,
+                              "ghdl.sim_flags": list(config.sim_options.get("ghdl.sim_flags", []))}
+        cmd = get_command(self, config, *args, **kwargs)
+        generics = [arg for arg in cmd if arg.startswith("-g")]
+        expected = [f"-g{name}={value}" for name, value in config.generics.items()]
+        if generics != expected:
+            sys.exit(f"GHDL command with the generics {generics}, expected {expected}")
+        return cmd
+
+    return wrapper
+
+
+GHDLInterface._get_command = own_sim_flags(GHDLInterface._get_command)
 
 sys.path.insert(0, str(ROOT / "tools"))
 import ocr_vectors  # noqa: E402
