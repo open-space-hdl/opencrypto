@@ -343,7 +343,10 @@ beats in these cycles and pauses for the rest. TC-FR-08 measures C(n) exactly at
 | 128 | 259 | 256 | 258 | 98.8 % | 12.65 Gbit/s |
 
 The payload rate scales with the clock frequency. A slower source sets a lower rate; the core then waits for the
-chunks. A chunk leaves after its last byte has entered the framer (store and forward), so its latency is at least
+chunks. With the release buffer the core holds the C(n) sectioned beats of a chunk: a chunk takes one cycle more
+while the buffer holds two chunks, so choose `ReleaseBytes_g` as the power of two of at least 2 · B · C(n) bytes, for
+example 16384 bytes for chunks of 4096 bytes at 128 bits (260 cycles per chunk). A buffer of 8192 bytes holds one
+chunk but not two, and a chunk then takes 3 · 259 - 512 + 4 = 269 cycles (section 7.1). A chunk leaves after its last byte has entered the framer (store and forward), so its latency is at least
 ceil(n / B) cycles after its first input beat; the IV beats of a chunk can leave before, and the output then pauses
 until the rest of the chunk follows. The framer alone, with an output that is always ready, pauses its input for at
 most ceil(4 / B) + 2 cycles per chunk (TC-FR-03).
