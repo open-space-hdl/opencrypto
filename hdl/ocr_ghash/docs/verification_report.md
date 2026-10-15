@@ -3,16 +3,16 @@
 ## 1. Test results
 
 Run on 2026-10-15 in the CI job `simulation-ghdl` (Ubuntu 24.04) with GHDL 6.0.0 (mcode), VUnit 5.0.0.dev7, UVVM (commit
-4f1e13bf), pycryptodome 3.23.0, Open Logic 4.7.0-ft.6: `python run.py -p 4` (full regression of 362 test runs; this
+4f1e13bf), pycryptodome 3.23.0, Open Logic 4.7.0-ft.6: `python run.py -p 4` (full regression of 441 test runs; this
 module: `python run.py "*ocr_ghash_tb*"`).
 
 | Testbench | Configurations | Tests | Passed |
 | --- | --- | --- | --- |
 | `ocr_ghash_tb` | 9 (16 bits with digits 16, 64, 128; 32 bits with 32, 64; 64 bits with 64, 128; 128 bits with 128; 32 bits with 8-bit byte counts) | 33 | 33 |
 
-QuestaSim (Questa Sim Microchip Edition 2024.3): the same tests pass on 2026-10-14 without and with code coverage with
-Open Logic 4.7.0-ft.3, which equals 4.7.0-ft.6 in every file that OpenCrypto uses (`python run.py --questa -p 1`,
-`python run.py --questa --coverage -p 1`); the coverage is in [docs/coverage.md](../../../docs/coverage.md).
+QuestaSim (Questa Sim Microchip Edition 2024.3): the same tests pass on 2026-10-15 without and with code coverage
+(`python run.py --questa -p 1`, `python run.py --questa --coverage -p 1`); the coverage is in
+[docs/coverage.md](../../../docs/coverage.md).
 
 GHDL runs before 2026-10-14 passed one list of simulator flags to all simulations (VUnit 5.0.0.dev7 appends the
 generics of every test to it), so a GHDL test could run with generics of an earlier test. QuestaSim was not

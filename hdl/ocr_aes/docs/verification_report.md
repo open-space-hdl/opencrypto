@@ -3,16 +3,16 @@
 ## 1. Test results
 
 Run on 2026-10-15 in the CI job `simulation-ghdl` (Ubuntu 24.04) with GHDL 6.0.0 (mcode), VUnit 5.0.0.dev7, UVVM (commit
-4f1e13bf), pycryptodome 3.23.0, Open Logic 4.7.0-ft.6: `python run.py -p 4` (full regression of 362 test runs; this
+4f1e13bf), pycryptodome 3.23.0, Open Logic 4.7.0-ft.6: `python run.py -p 4` (full regression of 441 test runs; this
 module: `python run.py "*ocr_aes_engine_tb*"`).
 
 | Testbench | Configurations | Tests | Passed |
 | --- | --- | --- | --- |
 | `ocr_aes_engine_tb` | 15 (AES-128 with 1, 3, 5, 7, 8, 9, 10 units; AES-192 with 3, 11, 12; AES-256 with 2, 4, 6, 13, 14) | 60 | 60 |
 
-QuestaSim (Questa Sim Microchip Edition 2024.3): the same tests pass on 2026-10-14 without and with code coverage with
-Open Logic 4.7.0-ft.3, which equals 4.7.0-ft.6 in every file that OpenCrypto uses (`python run.py --questa -p 1`,
-`python run.py --questa --coverage -p 1`); the coverage is in [docs/coverage.md](../../../docs/coverage.md).
+QuestaSim (Questa Sim Microchip Edition 2024.3): the same tests pass on 2026-10-15 without and with code coverage
+(`python run.py --questa -p 1`, `python run.py --questa --coverage -p 1`); the coverage is in
+[docs/coverage.md](../../../docs/coverage.md).
 
 GHDL runs before 2026-10-14 passed one list of simulator flags to all simulations (VUnit 5.0.0.dev7 appends the
 generics of every test to it), so a GHDL test could run with generics of an earlier test. QuestaSim was not
