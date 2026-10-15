@@ -68,12 +68,12 @@ included).
 | --- | --- | --- | --- |
 | `ocr_aes` | 7 | 7 | - |
 | `ocr_core` | 15 | 15 | - |
-| `ocr_framer` | 12 | 12 | - |
-| `ocr_gcm` | 24 | 24 | - |
+| `ocr_framer` | 13 | 13 | - |
+| `ocr_gcm` | 25 | 25 | - |
 | `ocr_ghash` | 9 | 9 | - |
-| `ocr_key_table` | 16 | 16 | - |
+| `ocr_key_table` | 17 | 17 | - |
 | `ocr_mib` | 12 | 12 | - |
-| `ocr_packer` | 7 | 7 | - |
+| `ocr_packer` | 8 | 8 | - |
 | `ocr_pkg` | 11 | 11 | - |
 
-Requirements: 113; without a test case: 0; test cases of the plans not run by a testbench: 0.
+Requirements: 117; without a test case: 0; test cases of the plans not run by a testbench: 0.

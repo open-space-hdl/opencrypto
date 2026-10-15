@@ -38,8 +38,10 @@ library work;
 ---------------------------------------------------------------------------------------------------
 entity ocr_key_table_th is
     generic (
-        KeyBits_g : positive := 256;
-        NumKeys_g : positive := 4
+        KeyBits_g       : positive := 256;
+        NumKeys_g       : positive := 4;
+        ClkFreqHz_g     : positive := 100_000_000;
+        ScrubPeriodUs_g : natural  := 0
     );
     port (
         Clk               : out   std_logic;
@@ -78,8 +80,13 @@ end entity;
 ---------------------------------------------------------------------------------------------------
 architecture sim of ocr_key_table_th is
 
-    constant ClkPeriod_c : time     := 10 ns;
-    constant SlotBits_c  : positive := slotBits(NumKeys_g);
+    -- The clock runs at ClkFreqHz_g, the frequency that sizes the pacer of the scrubbers. GHDL 6.0.0 cannot
+    -- override real generics with -g: the bench takes the frequency in Hz and the scrub period in microseconds
+    -- as integers and converts them to the real generics of the key table.
+    constant ClkPeriod_c   : time     := 1 sec / ClkFreqHz_g;
+    constant ClkFreqHz_c   : real     := real(ClkFreqHz_g);
+    constant ScrubPeriod_c : real     := real(ScrubPeriodUs_g) * 1.0e-6;
+    constant SlotBits_c    : positive := slotBits(NumKeys_g);
 
     signal Clk_i       : std_logic := '0';
     signal Ctx_Valid   : std_logic;
@@ -112,8 +119,10 @@ begin
 
     i_dut : entity work.ocr_key_table
         generic map (
-            KeyBits_g => KeyBits_g,
-            NumKeys_g => NumKeys_g
+            KeyBits_g     => KeyBits_g,
+            NumKeys_g     => NumKeys_g,
+            ClkFreqHz_g   => ClkFreqHz_c,
+            ScrubPeriod_g => ScrubPeriod_c
         )
         port map (
             Clk               => Clk_i,

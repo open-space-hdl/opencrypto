@@ -3,7 +3,8 @@
 # Authors: Julian Schneider
 # ---------------------------------------------------------------------------------------------------
 """VUnit configurations of the ocr_framer testbench: the framer alone at every data width and chunk sizes from
-16 beats to the default of 4096 bytes, and the framer with ocr_core (dense output) against pycryptodome."""
+the minimum of 16 bytes to the default of 4096 bytes, and the framer with ocr_core (dense output) against
+pycryptodome."""
 
 import random
 
@@ -17,6 +18,7 @@ CONFIGS = {
     "w64_c128_b3": (64, 128, 3, 256, False, ALONE),
     "w128_c256_b4": (128, 256, 4, 256, False, ALONE),
     "w32_c4096": (32, 4096, 2, 256, False, ["test_chunks", "test_throughput"]),
+    "w128_c16": (128, 16, 2, 256, False, ALONE),
     "w32_c64_core": (32, 64, 2, 256, True, CORE),
     "w16_c32_core": (16, 32, 2, 128, True, CORE),
     "w64_c1024_core": (64, 1024, 2, 256, True, CORE),

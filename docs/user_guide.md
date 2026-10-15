@@ -29,10 +29,10 @@ VUnit, and the CI checks that it is current.
 | `GhashDigit_g` | 0 | Bits per cycle of the GHASH multiplier, `DataWidth_g` to 128; 0 selects 128 for 64 and 128 bits, 64 for 16 and 32 bits |
 | `LenBits_g` | 32 | Width of the byte counts: AAD and DATA sections of up to 2<sup>`LenBits_g`</sup> - 1 bytes (8 to 32) |
 | `ReleaseBuffer_g` | false | Release buffer at the output: a message leaves the core only when its status is OK |
-| `ReleaseBytes_g` | 4096 | Size of the release buffer in bytes: a power of two of at least 16 beats; longer messages are dropped with OVERFLOW |
+| `ReleaseBytes_g` | 4096 | Size of the release buffer in bytes: a power of two from 16 beats to 65536 bytes; longer messages are dropped with OVERFLOW |
 | `DenseOutput_g` | false | Dense output: every output message leaves as one gapless byte string (section 4.5) |
-| `ClkFreqHz_g` | 100.0e6 | Clock frequency, sizes the pacer of the key table scrubbers |
-| `ScrubPeriod_g` | 0.0 | Scrub period of the key table in seconds; 0 scrubs in every cycle without access |
+| `ClkFreqHz_g` | 100.0e6 | Clock frequency, sizes the pacer of the key table scrubbers; at least 1000 when `ScrubPeriod_g` is not 0.0 |
+| `ScrubPeriod_g` | 0.0 | Scrub period of the key table in seconds: 0.0 scrubs in every cycle without access, otherwise at least 0.001 (1 ms resolution) |
 
 Default numbers of AES units (ceil(2 Nr / (R + 1)) with R = 128 / `DataWidth_g` beats per block) and the minimum
 (ceil(Nr / R)), which sustains long messages only:
@@ -46,6 +46,13 @@ Default numbers of AES units (ceil(2 Nr / (R + 1)) with R = 128 / `DataWidth_g` 
 
 Every unit is one iterative AES round with its key expansion; the AES engine is the largest part of the core. The
 generics registers report the values that the core uses.
+
+A value outside the ranges of the table stops the elaboration (range constraint or assertion). Every value of
+`DataWidth_g`, `KeyBits_g`, `ReleaseBuffer_g` and `DenseOutput_g` and every number of AES units runs in the
+regression, and the bounds of the numeric generics are elaborated and synthesised (`python lint/synth_check.py`);
+the [verification report of ocr_core](../hdl/ocr_core/docs/verification_report.md) lists the simulated and
+synthesised values. 65536 bytes is the largest release buffer that is elaborated and synthesised; the buffer sizes
+its counters from `ReleaseBytes_g`, so the bound is the verified maximum, not a limit of the design.
 
 ## 3. Clock and reset
 
@@ -160,9 +167,9 @@ encryption with a generated IV of the slot `Cfg_Slot`.
 | --- | --- | --- |
 | `DataWidth_g` | 32 | Width of the streams: the `DataWidth_g` of the core |
 | `NumKeys_g` | 4 | The `NumKeys_g` of the core (width of the slot) |
-| `ChunkBytes_g` | 4096 | Bytes of a chunk, a multiple of 16 |
+| `ChunkBytes_g` | 4096 | Bytes of a chunk, a multiple of 16 from 16 to 65536 |
 | `BufferChunks_g` | 2 | Chunks that the chunk buffer holds (2 to 64) |
-| `RamStyle_g` | "auto" | RAM style of the chunk buffer |
+| `RamStyle_g` | "auto" | RAM style of the chunk buffer, passed to Open Logic: a synthesis attribute, not verified by simulation |
 
 | Port | Direction | Connection |
 | --- | --- | --- |

@@ -325,9 +325,16 @@ begin
                 tbSetStall(0, ChSink_c, 0.3);
                 tbStart(0, models);
 
+                -- The reset falls into the middle of the set: after half of its messages, at the latest after
+                -- 400 cycles
                 for i in 0 to 400 loop
+                    exit when OcrVec_v.cursor(0, ChSource_c) >= N_v / 2;
                     syncClk;
                 end loop;
+
+                log(ID_SEQUENCER, "reset after " & to_string(OcrVec_v.cursor(0, ChSource_c)) & " of " &
+                    to_string(N_v) & " messages");
+                check_value(OcrVec_v.cursor(0, ChSource_c) < N_v, ERROR, "reset before the end of the set");
 
                 for ch in 0 to 3 loop
                     OcrVec_v.setLimit(0, ch, OcrVec_v.cursor(0, ch) + 1);

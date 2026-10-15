@@ -17,6 +17,7 @@ that a receiver decrypts and verifies on its own and puts back together in the o
 | --- | --- | --- |
 | FR-IF-01 | The framer shall have the input `S_In` (AXI4-Stream of `DataWidth_g` bits with `Keep` and `Last`), the context output `M_Ctx` and the message output `M_Out` (`User(1:0)` the section) with the signals of `S_Ctx` and `S_In` of `ocr_core` of the same `DataWidth_g` and `NumKeys_g`, the static input `Cfg_Slot`, the ECC event outputs and the error injection inputs, all in `Clk` with the synchronous high-active reset `Rst`. Input format: all bytes of a beat valid except in the last beat of a packet, contiguous from lane 0; a packet without byte is one beat without valid byte. | none (D15) |
 | FR-IF-02 | `DataWidth_g` shall be 16, 32, 64 or 128 and `ChunkBytes_g` a multiple of 16; any other value shall stop the elaboration. | none (D15) |
+| FR-IF-03 | `ChunkBytes_g` shall be at most 65536; a larger value shall stop the elaboration. | none (D15) |
 
 ### 2.2 Function
 
@@ -57,6 +58,6 @@ that a receiver decrypts and verifies on its own and puts back together in the o
 | --- | --- | --- | --- |
 | `DataWidth_g` | 32 | 16, 32, 64, 128 | Width of the streams, equal to `DataWidth_g` of the core |
 | `NumKeys_g` | 4 | 1 to 256 | Number of key slots of the core (width of `Cfg_Slot` and `M_Ctx_Slot`) |
-| `ChunkBytes_g` | 4096 | multiple of 16 | Bytes of a chunk |
+| `ChunkBytes_g` | 4096 | multiple of 16, 16 to 65536 | Bytes of a chunk; 65536 is the largest value that is elaborated and synthesised, the chunker, the chunk buffer and the counters are sized from the generic |
 | `BufferChunks_g` | 2 | 2 to 64 | Chunks that the chunk buffer holds (rounded up to a power of two of words) |
-| `RamStyle_g` | "auto" | | RAM style of the chunk buffer (Open Logic) |
+| `RamStyle_g` | "auto" | RAM styles of Open Logic | RAM style of the chunk buffer (Open Logic); a synthesis attribute without effect in simulation |

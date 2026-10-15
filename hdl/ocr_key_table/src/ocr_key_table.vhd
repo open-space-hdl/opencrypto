@@ -199,6 +199,10 @@ architecture rtl of ocr_key_table is
 
 begin
 
+    assert KeyBits_g = 128 or KeyBits_g = 192 or KeyBits_g = 256
+        report "ocr_key_table: KeyBits_g must be 128, 192 or 256"
+        severity failure;
+
     p_comb : process (all) is
         variable v       : TwoProcess_r;
         variable Ded_v   : std_logic;

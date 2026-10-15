@@ -33,7 +33,7 @@ entity ocr_framer is
     generic (
         DataWidth_g    : positive range 16 to 128 := 32;   -- 16, 32, 64 or 128
         NumKeys_g      : positive range 1 to 256  := 4;    -- as ocr_core: width of the slot
-        ChunkBytes_g   : positive                 := 4096; -- a multiple of 16
+        ChunkBytes_g   : positive                 := 4096; -- a multiple of 16, at most 65536
         BufferChunks_g : positive range 2 to 64   := 2;    -- chunk buffer size in chunks
         RamStyle_g     : string                   := "auto"
     );
@@ -166,6 +166,9 @@ begin
         severity failure;
     assert ChunkBytes_g mod 16 = 0
         report "ocr_framer: ChunkBytes_g must be a multiple of 16"
+        severity failure;
+    assert ChunkBytes_g <= 65536
+        report "ocr_framer: ChunkBytes_g must not exceed 65536"
         severity failure;
 
     -----------------------------------------------------------------------------------------------

@@ -16,9 +16,11 @@ the GCM specification; the vector files do not depend on the data width.
 
 | Configuration | Width | Key | Other generics | Tests |
 | --- | --- | --- | --- | --- |
-| `w16_aes256`, `w32_aes128`, `w32_aes192`, `w64_aes256`, `w128_aes128`, `w128_aes256` | 16 to 128 | 128 to 256 | defaults | TC-GC-01 to TC-GC-12, TC-GC-15 |
+| `w16_aes256`, `w32_aes128`, `w32_aes192`, `w64_aes128`, `w64_aes256`, `w128_aes128`, `w128_aes192`, `w128_aes256` | 16 to 128 | 128 to 256 | defaults | TC-GC-01 to TC-GC-12, TC-GC-15 |
 | `w32_aes256_min` | 32 | 256 | 4 AES units, 32-bit GHASH digit (minimum) | TC-GC-01 to 05, 08 to 12, 15 |
+| `w32_aes256_max` | 32 | 256 | 14 AES units, 128-bit GHASH digit (maximum) | TC-GC-01 to TC-GC-12, TC-GC-15 |
 | `w32_aes256_rel`, `w128_aes256_rel` | 32, 128 | 256 | release buffer of 512 and 1024 bytes | TC-GC-04, 07 to 10, 14 |
+| `w32_aes256_rel64` | 32 | 256 | release buffer of 64 bytes (16 beats, the minimum) | TC-GC-14 |
 | `w32_aes128_len8` | 32 | 128 | 8-bit byte counts | TC-GC-13 |
 
 Vector files per key length: the test cases of the GCM specification (encryption, decryption), 120 random encryptions,
@@ -46,7 +48,7 @@ Simulator: GHDL; QuestaSim for code coverage.
 | `test_hash_subkey` (TC-GC-11) | 40 hash subkey requests while 150 messages pass: the results are CIPH<sub>K</sub>(0<sup>128</sup>), every second one is taken only five cycles after it is valid and held until then | GC-IF-05 |
 | `test_reset` (TC-GC-12) | Reset while messages are in the data path; all messages from the next one on are correct | GC-IF-06 |
 | `test_length` (TC-GC-13) | Sections up to 500 bytes with 8-bit byte counts: LENGTH for every section above 255 bytes, tag of an encryption zeros, saturated byte counts | GC-IN-04, GC-TG-03, GC-OU-03 |
-| `test_release` (TC-GC-14) | Release buffer: small and large messages, 30 % of the decryptions with a modified tag: only OK messages leave, too long ones report OVERFLOW | GC-OU-04 |
+| `test_release` (TC-GC-14) | Release buffer: small and large messages, 30 % of the decryptions with a modified tag: only OK messages leave, too long ones report OVERFLOW; with the buffer of 16 beats the messages of exactly 16 sectioned output beats leave and those of 17 beats report OVERFLOW, in both directions | GC-OU-04, GC-OU-05 |
 | `test_backlog` (TC-GC-15) | 200 one-beat encryptions without stall cycles; 200 short messages of every kind (external and generated IVs, decryptions with 20 % modified tags, absent and empty sections) without stall cycles, then with a sink and a status sink that are ready in 5 % and 3 % of the cycles, then with a status sink that is ready in 1 % of the cycles: the buffers inside the data path fill, every byte and status is correct | GC-IF-07, GC-IN-01, GC-OU-01, GC-OU-02 |
 
 ## 4. Requirement coverage
@@ -70,5 +72,11 @@ Simulator: GHDL; QuestaSim for code coverage.
 | GC-OU-02 | TC-GC-01, TC-GC-03, TC-GC-04 |
 | GC-OU-03 | TC-GC-08, TC-GC-10, TC-GC-13 |
 | GC-OU-04 | TC-GC-14 |
+| GC-OU-05 | TC-GC-14 |
 | GC-PF-01 | TC-GC-06, TC-GC-07 |
 | GC-FT-01 | TC-GC-10 |
+
+GC-OU-05 is checked for its minimum by `w32_aes256_rel64` and for further legal values by the other configurations with
+release buffer; the maximum of 65536 bytes is elaborated and synthesised by `lint/synth_check.py`. An illegal
+`ReleaseBytes_g` (not a power of two, below 16 beats, above 65536 bytes) stops the elaboration with an assertion of
+severity failure; `lint/synth_check.py` checks that it stops the elaboration with the message of its assertion.

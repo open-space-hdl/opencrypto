@@ -15,6 +15,7 @@ of the message stay unchanged.
 | ID | Requirement | Clauses |
 | --- | --- | --- |
 | PA-IF-01 | The input and the output shall be AXI4-Stream ports of `DataWidth_g` bits (16, 32, 64 or 128) with `Keep`, `Last` and `User`, in `Clk` with the synchronous high-active reset `Rst`. Input format: the sectioned output messages of the output assembly (section code in `User(1:0)`, error flag on the last beat in `User(2)`, valid bytes contiguous from lane 0, a beat without valid byte only as the only beat of a message). | none (architecture section 6) |
+| PA-IF-02 | `DataWidth_g` shall be 16, 32, 64 or 128; any other value shall stop the elaboration. | none (architecture D4, D6) |
 
 ### 2.2 Function
 

@@ -40,7 +40,7 @@ entity ocr_gcm is
         LenBits_g       : positive range 8 to 32    := 32;
         SlotBits_g      : positive range 1 to 8     := 2;
         ReleaseBuffer_g : boolean                   := false;
-        ReleaseBytes_g  : positive                  := 4096    -- power of two, at least 16 beats
+        ReleaseBytes_g  : positive                  := 4096    -- power of two, 16 beats to 65536 bytes
     );
     port (
         -- Control
@@ -255,8 +255,9 @@ begin
     assert Digit_c >= DataWidth_g
         report "ocr_gcm: GhashDigit_g below DataWidth_g cannot sustain one beat per clock cycle"
         severity failure;
-    assert not ReleaseBuffer_g or (log2(RelDepth_c) = log2ceil(RelDepth_c) and RelDepth_c >= 16)
-        report "ocr_gcm: ReleaseBytes_g must be a power of two of at least 16 beats"
+    assert not ReleaseBuffer_g or (log2(RelDepth_c) = log2ceil(RelDepth_c) and RelDepth_c >= 16 and
+                                   ReleaseBytes_g <= 65536)
+        report "ocr_gcm: ReleaseBytes_g must be a power of two from 16 beats to 65536 bytes"
         severity failure;
 
     -----------------------------------------------------------------------------------------------

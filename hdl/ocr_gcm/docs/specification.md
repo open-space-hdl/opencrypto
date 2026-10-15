@@ -51,6 +51,7 @@ and uses the hash subkey port when it loads a key.
 | GC-OU-02 | The output of a decryption shall be the non-empty AAD section and the non-empty plaintext; its last beat shall carry the verdict as the error flag. | GCM 7.2 |
 | GC-OU-03 | The TAG section of an encryption that failed shall be all zeros. | none (D12) |
 | GC-OU-04 | With `ReleaseBuffer_g` a message shall leave the data path only when its status is OK; a message longer than the buffer shall be dropped with OVERFLOW. | GCM 5.2.2, 7.2 |
+| GC-OU-05 | With `ReleaseBuffer_g`, `ReleaseBytes_g` shall be a power of two from 16 beats to 65536 bytes; any other value shall stop the elaboration. | none (D10) |
 
 ### 2.5 Performance and fault tolerance
 
@@ -79,4 +80,4 @@ and uses the hash subkey port when it loads a key.
 | `LenBits_g` | 32 | 8 to 32 | Width of the byte counts |
 | `SlotBits_g` | 2 | 1 to 8 | Width of the key slot number |
 | `ReleaseBuffer_g` | false | | Release buffer at the output |
-| `ReleaseBytes_g` | 4096 | power of two, at least 16 beats | Size of the release buffer in bytes |
+| `ReleaseBytes_g` | 4096 | power of two, 16 beats to 65536 | Size of the release buffer in bytes; 65536 is the largest value that is elaborated and synthesised, the buffer sizes its counters from the generic |
