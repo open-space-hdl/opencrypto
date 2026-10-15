@@ -2,8 +2,9 @@
 
 ## 1. Test results
 
-Run on 2026-10-11 with GHDL 6.0.0 (mcode), VUnit 5.0.0.dev7, UVVM (commit 4f1e13bf), pycryptodome 3.23.0, Open Logic
-4.7.0-ft.1: `python run.py -p 4 "*ocr_pkg_tb*"` (part of the full regression of 278 test runs).
+Run on 2026-10-15 in the CI job `simulation-ghdl` (Ubuntu 24.04) with GHDL 6.0.0 (mcode), VUnit 5.0.0.dev7, UVVM (commit
+4f1e13bf), pycryptodome 3.23.0, Open Logic 4.7.0-ft.6: `python run.py -p 4` (full regression of 362 test runs; this
+module: `python run.py "*ocr_pkg_tb*"`).
 
 | Testbench | Configurations | Tests | Passed |
 | --- | --- | --- | --- |
