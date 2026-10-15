@@ -13,6 +13,10 @@ QuestaSim (Questa Sim Microchip Edition 2024.3): the same tests pass on 2026-10-
 (`python run.py --questa -p 1`, `python run.py --questa --coverage -p 1`); the coverage is in
 [docs/coverage.md](../../../docs/coverage.md).
 
+GHDL runs before 2026-10-14 passed one list of simulator flags to all simulations (VUnit 5.0.0.dev7 appends the
+generics of every test to it), so a GHDL test could run with generics of an earlier test. QuestaSim was not
+affected. Since then every GHDL simulation has its own flags and `run.py` checks its generics.
+
 ## 2. Summary
 
 All test cases pass; every requirement of the specification is covered (see the verification plan). Contexts are
