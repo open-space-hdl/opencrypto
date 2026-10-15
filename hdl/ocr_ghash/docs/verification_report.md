@@ -31,6 +31,7 @@ Findings:
 | Finding | Resolution |
 | --- | --- |
 | With a multiplier of two steps per block and a one-stage block queue the budget was exceeded by about 1.2 cycles per message | Three-stage block queue for multipliers of more than one step; the queue entry carries no byte counts (they are recovered from the length block) |
+| Vivado 2025.2 ended the RTL elaboration of `ocr_ghash` with `Digit_g` = 128 without a message when it ran with its default stack; the cause was the in-place accumulation of the product in `gfMulDigit` of `ocr_pkg` | `gfMulDigit` writes every coefficient of the product once (finding in the report of `ocr_pkg`); the multiplier has the same cells as before, and Vivado 2025.2 elaborates `ocr_ghash` and `ocr_core` at 128 bits with its default stack |
 
 ## 3. Generic values
 
