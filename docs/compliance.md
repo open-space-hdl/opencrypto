@@ -67,8 +67,8 @@ included).
 | Module | Requirements | Verified by a test case | Without a test case |
 | --- | --- | --- | --- |
 | `ocr_aes` | 7 | 7 | - |
-| `ocr_core` | 13 | 13 | - |
-| `ocr_framer` | 11 | 11 | - |
+| `ocr_core` | 15 | 15 | - |
+| `ocr_framer` | 12 | 12 | - |
 | `ocr_gcm` | 24 | 24 | - |
 | `ocr_ghash` | 9 | 9 | - |
 | `ocr_key_table` | 16 | 16 | - |
@@ -76,4 +76,4 @@ included).
 | `ocr_packer` | 7 | 7 | - |
 | `ocr_pkg` | 11 | 11 | - |
 
-Requirements: 110; without a test case: 0; test cases of the plans not run by a testbench: 0.
+Requirements: 113; without a test case: 0; test cases of the plans not run by a testbench: 0.

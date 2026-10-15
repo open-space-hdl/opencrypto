@@ -9,23 +9,31 @@ ALL = ["test_registers", "test_key_load", "test_messages", "test_iv_generation",
        "test_throughput_decrypt", "test_reset"]
 SUBSET = ["test_registers", "test_messages", "test_iv_generation", "test_context_errors", "test_throughput_encrypt",
           "test_throughput_decrypt"]
+IVGEN = ["test_throughput_ivgen"]
+RELEASE = ["test_registers", "test_messages", "test_throughput_encrypt", "test_throughput_decrypt",
+           "test_throughput_release"]
 
 # name: (data width, key bits, key slots, extra generics, tests)
 CONFIGS = {
     "w32_k256_n4": (32, 256, 4, {}, ALL),
-    "w128_k256_n4": (128, 256, 4, {}, ALL),
+    "w128_k256_n4": (128, 256, 4, {}, ALL + IVGEN),
     "w16_k128_n2": (16, 128, 2, {}, SUBSET),
-    "w64_k192_n8": (64, 192, 8, {}, SUBSET),
+    "w64_k192_n8": (64, 192, 8, {}, SUBSET + IVGEN),
     "w32_k256_n4_rel": (32, 256, 4, {"ReleaseBuffer_g": True, "ReleaseBytes_g": 512},
-                        ["test_registers", "test_messages", "test_throughput_decrypt"]),
+                        RELEASE),
     "w64_k256_n4_series": (64, 256, 4, {"Series_g": True}, ["test_series"]),
     # Dense output
     "w32_k256_n4_dense": (32, 256, 4, {"DenseOutput_g": True},
                           SUBSET + ["test_ecc", "test_reset"]),
-    "w128_k256_n4_dense": (128, 256, 4, {"DenseOutput_g": True}, SUBSET + ["test_reset"]),
+    "w128_k256_n4_dense": (128, 256, 4, {"DenseOutput_g": True}, SUBSET + ["test_reset"] + IVGEN),
     "w16_k128_n2_dense": (16, 128, 2, {"DenseOutput_g": True}, SUBSET),
     "w64_k192_n8_dense_rel": (64, 192, 8, {"DenseOutput_g": True, "ReleaseBuffer_g": True, "ReleaseBytes_g": 512},
-                              ["test_registers", "test_messages", "test_throughput_decrypt"]),
+                              RELEASE),
+    # Release buffer for framer chunks of 4096 bytes: holds one chunk (8192 bytes) or two (16384 bytes)
+    "w128_k256_n4_dense_rel8k": (128, 256, 4, {"DenseOutput_g": True, "ReleaseBuffer_g": True, "ReleaseBytes_g": 8192},
+                                 ["test_throughput_release_chunks"]),
+    "w128_k256_n4_dense_rel16k": (128, 256, 4, {"DenseOutput_g": True, "ReleaseBuffer_g": True,
+                                                "ReleaseBytes_g": 16384}, ["test_throughput_release_chunks"]),
 }
 
 
@@ -51,6 +59,13 @@ def configure(lib, vectors):
             vectors.gcm_random_set(d / "tp_dec.txt", bits, 120, seed=seed + 7, max_aad=48, max_data=160,
                                    slots=slots, mode="dec")
             vectors.series_set(d / "series.txt", bits, 80, seed=seed + 8, slots=slots)
+            # Release buffer of 512 bytes: messages of half the buffer and longer
+            for rel_name, length, dec in (("rel_enc_half", 240, False), ("rel_enc_long", 400, False),
+                                      ("rel_dec_half", 256, True), ("rel_dec_long", 400, True)):
+                vectors.fixed_set(d / f"{rel_name}.txt", bits, 12, seed=seed + 10, data_len=length, decrypt=dec)
+            # Chunks of a framer: 4 bytes of AAD, generated IVs
+            for n in (256, 1024, 4096):
+                vectors.fixed_set(d / f"chunk_{n}.txt", bits, 16, seed=seed + 11, data_len=n, aad_len=4, ivgen=True)
             made[key] = d
         generics = {"DataWidth_g": width, "KeyBits_g": bits, "NumKeys_g": keys, "VecDir_g": d.as_posix()}
         generics.update(extra)

@@ -81,15 +81,17 @@ begin
     test_runner_watchdog(runner, 50 ms);
 
     p_main : process is
-        variable D_v   : std_logic_vector(31 downto 0);
-        variable Sts_v : std_logic_vector(31 downto 0);
-        variable Fix_v : std_logic_vector(31 downto 0);
-        variable Cnt_v : std_logic_vector(63 downto 0);
-        variable N_v   : natural;
-        variable Gen_v : natural;
-        variable M_v   : natural;
-        variable Sec_v : natural;
-        variable Ded_v : natural;
+        variable D_v    : std_logic_vector(31 downto 0);
+        variable Sts_v  : std_logic_vector(31 downto 0);
+        variable Fix_v  : std_logic_vector(31 downto 0);
+        variable Cnt_v  : std_logic_vector(63 downto 0);
+        variable N_v    : natural;
+        variable Gen_v  : natural;
+        variable M_v    : natural;
+        variable Sec_v  : natural;
+        variable Ded_v  : natural;
+        variable Span_v : natural;
+        variable T_v    : time;
 
         procedure syncClk is
         begin
@@ -175,6 +177,138 @@ begin
             check_value(OcrVec_v.cursor(0, ChSink_c), N_v, ERROR, "messages checked at the output of " & name);
             check_value(OcrVec_v.cursor(0, ChSts_c), N_v, ERROR, "status checked of " & name);
         end procedure;
+
+        -- Throughput measurement: the messages of a vector file without stall cycles; Span_v is the number of cycles of
+        -- channel ch (the output of encryptions, the input of decryptions) from the last beat of the first message to
+        -- the last beat of the last message
+        procedure measureSet (
+            name : string;
+            ch   : natural) is
+        begin
+            tbLoad(0, VecDir_g & "/" & name);
+            regLoadAll(AXILITE_VVCT, A_c, 0, KeyBits_g);
+
+            for c in 0 to 3 loop
+                tbSetStall(0, c, 0.0);
+                OcrVec_v.clearStats(0, c);
+            end loop;
+
+            tbStart(0, All_c);
+
+            while OcrVec_v.cursor(0, ch) < 1 loop
+                syncClk;
+            end loop;
+
+            -- The last beat of the first message was in the cycle before
+            OcrVec_v.clearStats(0, ch);
+            T_v    := now - 1 ns;
+            tbWaitDone(0, ChSink_c, 10 ms, name);
+            tbWaitDone(0, ChSts_c, 10 ms, name);
+            N_v    := OcrVec_v.msgCount(0);
+            check_value(OcrVec_v.cursor(0, ChSink_c), N_v, ERROR, "messages checked at the output of " & name);
+            check_value(OcrVec_v.cursor(0, ChSts_c), N_v, ERROR, "status checked of " & name);
+            T_v    := OcrVec_v.lastTime(0, ch) - T_v;
+            Span_v := T_v / ClkPeriod_c;
+        end procedure;
+
+        -- Beats of message m in the input sections (input) or in the sectioned output sections (output)
+        impure function msgBeats (
+            m    : natural;
+            what : string) return natural is
+            variable R_v : natural := 0;
+        begin
+            if what = "input" then
+
+                for s in 0 to OcrVec_v.inCount(0, m) - 1 loop
+                    R_v := R_v + tbBeats(OcrVec_v.inLen(0, m, s), DataWidth_g / 8);
+                end loop;
+
+            else
+
+                for s in 0 to OcrVec_v.outCount(0, m) - 1 loop
+                    R_v := R_v + tbBeats(OcrVec_v.outLen(0, m, s), DataWidth_g / 8);
+                end loop;
+
+            end if;
+            return R_v;
+        end function;
+
+        -- Output cycles of encryption m in a back-to-back sequence (CO-PF-03): its sectioned output beats; with the
+        -- dense output one more when its last beat does not fit into the output beat with the bytes before it
+        impure function outCycles (m : natural) return natural is
+            constant Bytes_c : positive := DataWidth_g / 8;
+            variable Res_v   : natural  := 0;
+            variable Tot_v   : natural  := 0;
+            variable Len_v   : natural;
+        begin
+
+            for s in 0 to OcrVec_v.outCount(0, m) - 1 loop
+                Len_v := OcrVec_v.outLen(0, m, s);
+
+                for b in 0 to tbBeats(Len_v, Bytes_c) - 1 loop
+                    Tot_v := Res_v + minimum(Bytes_c, Len_v - b * Bytes_c);
+                    Res_v := Tot_v mod Bytes_c;
+                end loop;
+
+            end loop;
+
+            if DenseOutput_g and Tot_v > Bytes_c then
+                return msgBeats(m, "output") + 1;
+            end if;
+            return msgBeats(m, "output");
+        end function;
+
+        -- Release buffer (CO-PF-04): bound of the cycles of message m at the bottleneck side (B beats there, the
+        -- output of an encryption or the input of a decryption), M sectioned output beats in a buffer of D beats:
+        -- max(B + 2, 3 M - D + 4)
+        impure function relCycles (m : natural) return natural is
+            constant D_c : natural := ReleaseBytes_g / (DataWidth_g / 8);
+            variable B_v : natural;
+            variable M_v : natural;
+        begin
+            M_v := msgBeats(m, "output");
+            if OcrVec_v.msgDec(0, m) then
+                B_v := msgBeats(m, "input");
+            else
+                B_v := outCycles(m);
+            end if;
+            if 3 * M_v + 4 > D_c + B_v + 2 then
+                return 3 * M_v + 4 - D_c;
+            end if;
+            return B_v + 2;
+        end function;
+
+        -- Release buffer, encryptions of one length (TC-CO-16): exact cycles of message m, its output cycles plus the
+        -- stall cycle of the buffer while the buffer holds two messages (2 M <= D), else 3 M - D + 4
+        impure function relChunkCycles (m : natural) return natural is
+            constant D_c : natural := ReleaseBytes_g / (DataWidth_g / 8);
+            variable M_v : natural;
+        begin
+            M_v := msgBeats(m, "output");
+            if 2 * M_v <= D_c then
+                return outCycles(m) + 1;
+            end if;
+            return 3 * M_v + 4 - D_c;
+        end function;
+
+        -- Sum over the messages after the first one of the expected cycles (ivgen, chunks) or of the bound of the
+        -- release buffer (release)
+        impure function sumCycles (what : string) return natural is
+            variable R_v : natural := 0;
+        begin
+
+            for m in 1 to OcrVec_v.msgCount(0) - 1 loop
+                if what = "release" then
+                    R_v := R_v + relCycles(m);
+                elsif what = "chunks" then
+                    R_v := R_v + relChunkCycles(m);
+                else
+                    R_v := R_v + outCycles(m);
+                end if;
+            end loop;
+
+            return R_v;
+        end function;
 
         procedure checkCounter (
             addr : natural;
@@ -439,7 +573,13 @@ begin
             runSet("tp_enc.txt", 0.0);
             log(ID_SEQUENCER, "output beats " & to_string(OcrVec_v.beats(0, ChSink_c)) & ", gaps " &
                 to_string(OcrVec_v.gaps(0, ChSink_c)) & ", slack of the dense output " & to_string(packSlack));
-            check_value(OcrVec_v.gaps(0, ChSink_c) <= MaxGaps_c + packSlack, ERROR, "cycles without output beat");
+            -- The release buffer stalls its read side one cycle per message (CO-PF-04)
+            if ReleaseBuffer_g then
+                N_v := MaxGaps_c + packSlack + OcrVec_v.msgCount(0);
+            else
+                N_v := MaxGaps_c + packSlack;
+            end if;
+            check_value(OcrVec_v.gaps(0, ChSink_c) <= N_v, ERROR, "cycles without output beat");
 
         elsif run("test_throughput_decrypt") then
             -- Back-to-back decryptions through the core: the input accepts a beat in every cycle
@@ -453,6 +593,52 @@ begin
                 N_v := MaxGaps_c;
             end if;
             check_value(OcrVec_v.gaps(0, ChSource_c) <= N_v, ERROR, "cycles without input beat");
+
+        elsif run("test_throughput_release") then
+
+            -- Release buffer: back-to-back messages of half the buffer and longer, encryptions at the output and
+            -- decryptions at the input; every message takes at most max(B + 2, 3 M - D + 4) cycles
+            for f in 0 to 3 loop
+
+                case f is
+                    when 0 => measureSet("rel_enc_half.txt", ChSink_c);
+                    when 1 => measureSet("rel_enc_long.txt", ChSink_c);
+                    when 2 => measureSet("rel_dec_half.txt", ChSource_c);
+                    when others => measureSet("rel_dec_long.txt", ChSource_c);
+                end case;
+
+                log(ID_SEQUENCER, "set " & to_string(f) & ": sectioned output beats of a message " &
+                    to_string(msgBeats(0, "output")) & ", input beats " & to_string(msgBeats(0, "input")) &
+                    ", buffer beats " & to_string(ReleaseBytes_g / (DataWidth_g / 8)) & ", cycles after the first " &
+                    "message " & to_string(Span_v) & ", bound " & to_string(sumCycles("release")));
+                check_value(Span_v <= sumCycles("release"), ERROR, "cycles of the messages after the first one");
+            end loop;
+
+        elsif run("test_throughput_ivgen") then
+
+            -- Back-to-back encryptions with generated IVs of the shape of framer chunks (4 bytes of AAD): after the first
+            -- message every message takes exactly its output beats, plus the extra beat of the packer
+            for f in 0 to 1 loop
+                if f = 0 then
+                    measureSet("chunk_256.txt", ChSink_c);
+                else
+                    measureSet("chunk_1024.txt", ChSink_c);
+                end if;
+                log(ID_SEQUENCER, "set " & to_string(f) & ": output beats of a message " &
+                    to_string(msgBeats(0, "output")) & ", cycles after the first message " & to_string(Span_v) &
+                    ", expected " & to_string(sumCycles("ivgen")));
+                check_value(Span_v, sumCycles("ivgen"), ERROR, "cycles of the messages after the first one");
+            end loop;
+
+        elsif run("test_throughput_release_chunks") then
+            -- Release buffer of 8192 or 16384 bytes at 128 bits: back-to-back framer chunks of 4096 bytes (generated
+            -- IVs, 4 bytes of AAD, M = 259 sectioned beats) take exactly 3 M - D + 4 cycles when the buffer holds one
+            -- chunk but not two, and M + 1 when it holds two
+            measureSet("chunk_4096.txt", ChSink_c);
+            log(ID_SEQUENCER, "sectioned output beats of a chunk " & to_string(msgBeats(0, "output")) &
+                ", buffer beats " & to_string(ReleaseBytes_g / (DataWidth_g / 8)) & ", cycles after the first chunk " &
+                to_string(Span_v) & ", expected " & to_string(sumCycles("chunks")));
+            check_value(Span_v, sumCycles("chunks"), ERROR, "cycles of the chunks after the first one");
 
         elsif run("test_reset") then
             -- A reset while messages are in the core erases the keys; after a new load the messages are correct

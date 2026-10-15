@@ -69,3 +69,8 @@ frees a chunk only after it has been read completely, which costs about one more
 at most AadBeats + 2 cycles per chunk while the outputs are always ready (FR-PF-01). A buffer of more chunks absorbs
 bursts but does not change the steady state, which the output rate sets. A chunk leaves after its last beat has been
 written (store and forward), behind its AAD beats and the output register.
+
+In front of `ocr_core` the core sets the pace: it adds the IV and the tag to every chunk, so a chunk of n bytes
+takes C(n) = ceil(12 / B) + AadBeats + ceil(n / B) + 16 / B cycles (plus one when n is not a multiple of B), and the
+buffer of two chunks is enough to keep the core busy (FR-IN-02, [user guide](../../../docs/user_guide.md), section
+7.2).

@@ -512,6 +512,24 @@ def release_set(path, key_bits, count, seed, release_bytes):
     return vf.write()
 
 
+def fixed_set(path, key_bits, count, seed, data_len, decrypt=False, aad_len=None, ivgen=False):
+    """Messages of one length for throughput measurements: count encryptions (or decryptions with correct tags) of
+    data_len bytes of DATA, with aad_len bytes of AAD (None: no AAD section), with external IVs or (ivgen,
+    encryptions only) with the IVs of the IV generation unit of the slot."""
+    rng = random.Random(seed)
+    vf = VectorFile(path)
+    vf.key(0, rand_bytes(rng, key_bits // 8), ivgen=ivgen, fixed=rng.getrandbits(32), counter=rng.getrandbits(40))
+    for _ in range(count):
+        aad = None if aad_len is None else rand_bytes(rng, aad_len)
+        data, iv = rand_bytes(rng, data_len), rand_bytes(rng, 12)
+        if decrypt:
+            c, t = gcm_encrypt(vf.slots[0].key, iv, aad or b"", data)
+            vf.decrypt(0, aad, c, t, iv)
+        else:
+            vf.encrypt(0, aad, data, iv=iv, ivgen=ivgen)
+    return vf.write()
+
+
 FLAG_JOB_ERR = 0x8
 FLAG_OUT_OK = 0x10
 FLAG_OUT_ERR = 0x20
