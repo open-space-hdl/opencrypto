@@ -10,9 +10,9 @@ module: `python run.py "*ocr_packer_tb*"`).
 | --- | --- | --- | --- |
 | `ocr_packer_tb` | 4 (16, 32, 64 and 128 bits) | 16 | 16 |
 
-QuestaSim (Questa Sim Microchip Edition 2024.3): the same tests pass on 2026-10-14 without and with code coverage
-(`python run.py --questa -p 1`, `python run.py --questa --coverage -p 1`); the coverage is in
-[docs/coverage.md](../../../docs/coverage.md).
+QuestaSim (Questa Sim Microchip Edition 2024.3): the same tests pass on 2026-10-14 without and with code coverage with
+Open Logic 4.7.0-ft.3, which equals 4.7.0-ft.6 in every file that OpenCrypto uses (`python run.py --questa -p 1`,
+`python run.py --questa --coverage -p 1`); the coverage is in [docs/coverage.md](../../../docs/coverage.md).
 
 GHDL runs before 2026-10-14 passed one list of simulator flags to all simulations (VUnit 5.0.0.dev7 appends the
 generics of every test to it), so a GHDL test could run with generics of an earlier test. QuestaSim was not
