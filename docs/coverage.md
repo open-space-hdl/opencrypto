@@ -27,11 +27,10 @@ Closure rules:
 
 ## 2. Result
 
-Run on 2026-10-15 with Open Logic 4.7.0-ft.6: 441 tests (80 test cases in their configurations), all passed, 50 minutes;
-the same tests pass without code coverage as well (53 minutes). The configurations at the bounds of the generics leave
-the numbers unchanged. Numbers are covered/total bins per file; bold marks a metric with misses. The register package
-contains no statements of its own; the statements of `ocr_core.vhd` are the connections of the sectioned and the dense
-output.
+Run on 2026-10-16 with Open Logic 4.7.0-ft.6: 441 tests (80 test cases in their configurations), all passed, 56 minutes;
+the same tests pass without code coverage as well (57 minutes). Numbers are covered/total bins per file; bold marks a
+metric with misses. The register package contains no statements of its own; the statements of `ocr_core.vhd` are the
+connections of the sectioned and the dense output.
 
 | File | Statements | Branches | FSM States | FSM Transitions | Conditions | Expressions |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -50,8 +49,8 @@ output.
 | `ocr_key_table/src/ocr_key_table.vhd` | 155/155 | 68/68 | 3/3 | 4/4 | 31/31 | 13/13 |
 | `ocr_mib/src/ocr_mib.vhd` | **172/173** | **97/98** |  |  | 14/14 | 3/3 |
 | `ocr_packer/src/ocr_packer.vhd` | 67/67 | 27/27 |  |  | 2/2 | 2/2 |
-| `ocr_pkg/src/ocr_pkg.vhd` | 144/144 | 37/37 |  |  | 4/4 | 11/11 |
-| Total | 1274/1276 (99.8 %) | 607/609 (99.7 %) | 11/11 (100.0 %) | 21/23 (91.3 %) | 192/197 (97.5 %) | 149/176 (84.7 %) |
+| `ocr_pkg/src/ocr_pkg.vhd` | 143/143 | 39/39 |  |  | 4/4 | 11/11 |
+| Total | 1273/1275 (99.8 %) | 609/611 (99.7 %) | 11/11 (100.0 %) | 21/23 (91.3 %) | 192/197 (97.5 %) | 149/176 (84.7 %) |
 
 All but two statements, all but two branches, every state and all but two transitions are covered. The misses are
 listed in section 4: the end of a message at a full summary FIFO, the saturation of a 32-bit counter, the reset in

@@ -10,7 +10,7 @@ module: `python run.py "*ocr_aes_engine_tb*"`).
 | --- | --- | --- | --- |
 | `ocr_aes_engine_tb` | 15 (AES-128 with 1, 3, 5, 7, 8, 9, 10 units; AES-192 with 3, 11, 12; AES-256 with 2, 4, 6, 13, 14) | 60 | 60 |
 
-QuestaSim (Questa Sim Microchip Edition 2024.3): the same tests pass on 2026-10-15 without and with code coverage
+QuestaSim (Questa Sim Microchip Edition 2024.3): the same tests pass on 2026-10-16 without and with code coverage
 (`python run.py --questa -p 1`, `python run.py --questa --coverage -p 1`); the coverage is in
 [docs/coverage.md](../../../docs/coverage.md).
 

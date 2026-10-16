@@ -10,7 +10,7 @@ module: `python run.py "*ocr_ghash_tb*"`).
 | --- | --- | --- | --- |
 | `ocr_ghash_tb` | 9 (16 bits with digits 16, 64, 128; 32 bits with 32, 64; 64 bits with 64, 128; 128 bits with 128; 32 bits with 8-bit byte counts) | 33 | 33 |
 
-QuestaSim (Questa Sim Microchip Edition 2024.3): the same tests pass on 2026-10-15 without and with code coverage
+QuestaSim (Questa Sim Microchip Edition 2024.3): the same tests pass on 2026-10-16 without and with code coverage
 (`python run.py --questa -p 1`, `python run.py --questa --coverage -p 1`); the coverage is in
 [docs/coverage.md](../../../docs/coverage.md).
 
