@@ -459,26 +459,30 @@ package body ocr_pkg is
         z : Block_t;
         d : std_logic_vector;
         h : Block_t) return Block_t is
-        constant D_c : positive                         := d'length;
-        variable D_v : std_logic_vector(0 to D_c - 1)   := d;
-        variable Z_v : std_logic_vector(0 to 127)       := z;
-        variable H_v : std_logic_vector(0 to 127)       := h;
-        variable T_v : std_logic_vector(0 to 127 + D_c) := (others => '0');
+        constant D_c : positive                       := d'length;
+        variable D_v : std_logic_vector(0 to D_c - 1) := d;
+        variable Z_v : std_logic_vector(0 to 127)     := z;
+        variable H_v : std_logic_vector(0 to 127)     := h;
+        variable T_v : std_logic_vector(0 to 127 + D_c);
+        variable S_v : std_logic;
         variable R_v : std_logic_vector(0 to 127);
     begin
 
-        -- z * u^D
-        for i in 0 to 127 loop
-            T_v(i + D_c) := Z_v(i);
-        end loop;
+        -- z * u^D + d * h, one coefficient at a time: the terms of coefficient k are summed in a scalar and T_v(k) is
+        -- written once. Updating T_v in place for every term would make an elaborator follow up to 128 * D partial
+        -- updates of one vector, which exhausts the default stack of some tools at a digit of 128 bits.
+        for k in 0 to 127 + D_c loop
+            if k >= D_c then
+                S_v := Z_v(k - D_c);
+            else
+                S_v := '0';
+            end if;
 
-        -- + d * h
-        for j in 0 to D_c - 1 loop
-
-            for i in 0 to 127 loop
-                T_v(i + j) := T_v(i + j) xor (D_v(j) and H_v(i));
+            for j in maximum(0, k - 127) to minimum(D_c - 1, k) loop
+                S_v := S_v xor (D_v(j) and H_v(k - j));
             end loop;
 
+            T_v(k) := S_v;
         end loop;
 
         -- Reduction from the highest degree: u^n = u^(n - 128) * (u^7 + u^2 + u + 1)

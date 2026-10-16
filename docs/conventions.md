@@ -17,6 +17,10 @@ document. This page lists the rules and the few OpenCrypto-specific additions.
 - A subprogram declared in a combinational process (`process (all)`) reads signals only through its parameters.
   Simulators differ in whether a signal that only such a subprogram reads is part of the sensitivity list; the
   process then misses its changes in one simulator and not in the other.
+- A loop does not update the elements of one vector variable in place over many iterations
+  (`T_v(i + j) := T_v(i + j) xor ...`): an elaborator follows the chain of partial updates recursively and can
+  exhaust its stack (Vivado 2025.2 did so with 16384 updates). Each element is summed in a scalar and written
+  once.
 - Resets are synchronous and high-active. Only state registers are reset. The core has one clock domain `Clk`.
 - Every data path between blocks is a valid / ready stream (AXI4-Stream handshake semantics) or a valid-only stream
   of one-cycle events where the receiver is never slower than the source.

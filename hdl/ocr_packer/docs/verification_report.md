@@ -10,7 +10,7 @@ module: `python run.py "*ocr_packer_tb*"`).
 | --- | --- | --- | --- |
 | `ocr_packer_tb` | 4 (16, 32, 64 and 128 bits) | 16 | 16 |
 
-QuestaSim (Questa Sim Microchip Edition 2024.3): the same tests pass on 2026-10-15 without and with code coverage
+QuestaSim (Questa Sim Microchip Edition 2024.3): the same tests pass on 2026-10-16 without and with code coverage
 (`python run.py --questa -p 1`, `python run.py --questa --coverage -p 1`); the coverage is in
 [docs/coverage.md](../../../docs/coverage.md).
 
