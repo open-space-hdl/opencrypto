@@ -8,7 +8,8 @@
 ---------------------------------------------------------------------------------------------------
 -- Test harness of ocr_key_table: clock, the key table, a context source and a job checker for the
 -- messages of vector set 0, and a model of the AES engine for the hash subkey requests. The key load,
--- zeroize, query and error injection ports are ports of the harness for the test sequencer.
+-- zeroize, query and error injection ports are ports of the harness for the test sequencer, which also
+-- sees the handshake of the context port and sets the pause of the context source.
 --
 -- What the models do NOT check or reproduce: the AES model answers a hash subkey request with the
 -- hash subkey of the KEY record of vector set 0 or 1 that has the same key (pycryptodome), after a fixed
@@ -71,7 +72,10 @@ entity ocr_key_table_th is
         ErrInj_BitFlip    : in    std_logic_vector(1 downto 0);
         ErrInj_Valid      : in    std_logic;
         AuxRequests       : out   natural;
-        JobReadyStall     : in    real
+        JobReadyStall     : in    real;
+        CtxPause          : in    natural;
+        CtxValid          : out   std_logic;
+        CtxReady          : out   std_logic
     );
 end entity;
 
@@ -180,6 +184,7 @@ begin
         )
         port map (
             Clk         => Clk_i,
+            Pause       => CtxPause,
             Ctx_Valid   => Ctx_Valid,
             Ctx_Ready   => Ctx_Ready,
             Ctx_Decrypt => Ctx_Decrypt,
@@ -237,6 +242,8 @@ begin
     end process;
 
     AuxRequests <= AuxCnt;
+    CtxValid    <= Ctx_Valid;
+    CtxReady    <= Ctx_Ready;
 
     -- Job checker: every job against the expected status, key, hash subkey and IV of its message
     p_job : process is

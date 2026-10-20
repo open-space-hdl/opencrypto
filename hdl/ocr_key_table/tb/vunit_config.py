@@ -30,6 +30,10 @@ def configure(lib, vectors):
         vectors.kt_set(d / "lastslot.txt", bits, keys, 0, seed=seed + 4, loaded=[last])
         vectors.kt_ecc_set(d / "ecc.txt", bits, seed=seed + 5)
         vectors.kt_set(d / "tp_ext.txt", bits, keys, 100, seed=seed + 6, ivgen_ratio=0.0)
+        # IV interlock: 12 encryptions with generated IVs of slot 0, and a second KEY record of slot 0 for the loads
+        vectors.kt_set(d / "ivlock.txt", bits, keys, 12, seed=seed + 8, loaded=[0], ivgen_ratio=1.0, dec_ratio=0.0,
+                       avoid=[s for s in range(1, 2 ** max(1, (keys - 1).bit_length()))])
+        vectors.kt_set(d / "ivload.txt", bits, keys, 0, seed=seed + 9, loaded=[0])
         gen = [s for s in range(0, keys, 2)][:4]
         vectors.kt_set(d / "tp_gen.txt", bits, keys, 100, seed=seed + 7, loaded=gen, ivgen_ratio=1.0, dec_ratio=0.0,
                        avoid=[s for s in range(2 ** max(1, (keys - 1).bit_length())) if s not in gen])

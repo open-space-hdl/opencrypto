@@ -8,7 +8,7 @@
 ---------------------------------------------------------------------------------------------------
 -- Testbench of ocr_key_table: erasure after the reset, key load with hash subkey, slot query,
 -- context resolution with all checks, IV generation and exhaustion, zeroize, loads during traffic,
--- error injection, scrubbing, throughput and reset.
+-- error injection, scrubbing, throughput, reset and the IV interlock of the read pipeline.
 --
 -- Documentation: hdl/ocr_key_table/docs/verification_plan.md
 
@@ -85,6 +85,9 @@ architecture sim of ocr_key_table_tb is
     signal ErrInj_Valid    : std_logic                                 := '0';
     signal AuxRequests     : natural;
     signal JobReadyStall   : real                                      := 0.0;
+    signal CtxPause        : natural                                   := 0;
+    signal CtxValid        : std_logic;
+    signal CtxReady        : std_logic;
 
     type CntArr_t is array (0 to 6) of natural;
 
@@ -219,6 +222,29 @@ begin
             tbStart(0, Both_c);
             tbWaitDone(0, ChSink_c, 500_000 * ClkPeriod_c, "contexts");
             check_value(OcrVec_v.cursor(0, ChSink_c), OcrVec_v.msgCount(0), ERROR, "jobs checked");
+        end procedure;
+
+        -- Loads the slots of set 0 from a file and lets the context source send the first context; returns
+        -- d cycles after the cycle in which the table reads the context (1 ns after the clock edge)
+        procedure contextThen (
+            fileName : string;
+            d        : natural) is
+        begin
+            tbLoad(0, fileName);
+            loadAll(0);
+            tbStart(0, Both_c, 1);
+
+            loop
+                syncClk;
+                exit when CtxValid = '1';
+            end loop;
+
+            check_value(CtxReady, '1', ERROR, "context read in the cycle it is offered");
+
+            for i in 1 to d loop
+                syncClk;
+            end loop;
+
         end procedure;
 
         -- Every loaded generator slot: the counter of its KEY record plus its generated IVs
@@ -494,7 +520,7 @@ begin
                 check_value(SecCnt(0), Sec0_v, ERROR, "no error at the read after the scrubber");
 
             elsif run("test_throughput") then
-                -- Contexts in every cycle: one per cycle with external IVs, one per two cycles with generated IVs
+                -- Contexts in every cycle: one per cycle with external IVs, one per three cycles with generated IVs
                 waitIdle;
                 tbLoad(0, VecDir_g & "/tp_ext.txt");
                 loadAll(0);
@@ -512,7 +538,7 @@ begin
                 Span_v := (OcrVec_v.lastTime(0,
                                              ChCtx_c) - OcrVec_v.firstTime(0,
                                                                               ChCtx_c)) / ClkPeriod_c;
-                check_value(Span_v, 2 * (N_v - 1), ERROR, "cycles for contexts with generated IVs");
+                check_value(Span_v, 3 * (N_v - 1), ERROR, "cycles for contexts with generated IVs");
 
             elsif run("test_reset") then
                 -- A reset during a load erases all slots: right after the load is accepted (hash subkey request
@@ -534,6 +560,81 @@ begin
                     for s in 0 to 2 ** SlotBits_c - 1 loop
                         query(s);
                         check_value(Query_KeyValid, '0', ERROR, "slot " & to_string(s) & " erased after the reset");
+                    end loop;
+
+                end loop;
+
+            elsif run("test_iv_interlock") then
+                -- KT-3, KT-4: a context with a generated IV blocks reads and loads until its counter is written
+                -- back. All contexts of the set are encryptions with generated IVs of slot 0.
+                waitIdle;
+                tbLoad(0, VecDir_g & "/ivlock.txt");
+                tbLoad(1, VecDir_g & "/ivload.txt");
+                loadAll(0);
+                tbSetStall(0, ChCtx_c, 0.0);
+                JobReadyStall <= 0.0;
+
+                -- Contexts back to back and with pauses of 1 to 3 cycles: the job checker expects consecutive
+                -- invocation counters, so every IV is new
+                for p in 0 to 3 loop
+                    CtxPause <= p;
+                    tbStart(0, Both_c, 3 * (p + 1));
+                    tbWaitDone(0, ChSink_c, 100_000 * ClkPeriod_c, "contexts with a pause of " & to_string(p));
+                end loop;
+
+                CtxPause <= 0;
+                query(0);
+                Cnt_v    := unsigned(OcrVec_v.keyCounter(0, 0)) + 12;
+                check_value(Query_Counter, std_logic_vector(Cnt_v), ERROR, "counter after 12 generated IVs");
+
+                -- A query 0 to 3 cycles after a context: in the cycle of the context it is read first, afterwards
+                -- it reads the counter written back by the context
+                for d in 0 to 3 loop
+                    contextThen(VecDir_g & "/ivlock.txt", d);
+                    query(0);
+                    tbWaitDone(0, ChSink_c, 100_000 * ClkPeriod_c, "context before a query");
+                    Cnt_v := unsigned(OcrVec_v.keyCounter(0, 0));
+                    if d > 0 then
+                        Cnt_v := Cnt_v + 1;
+                    end if;
+                    check_value(Query_Counter, std_logic_vector(Cnt_v), ERROR,
+                                "counter of a query " & to_string(d) & " cycles after a context");
+                end loop;
+
+                -- A load of the slot 1 to 3 cycles after a context: the slot holds the loaded word, the counter
+                -- write-back of the context does not overwrite it (a load in the cycle of the context is excluded
+                -- by the programming sequence of the user guide)
+                for d in 1 to 3 loop
+                    contextThen(VecDir_g & "/ivlock.txt", d);
+                    loadKey(1, 0);
+                    waitIdle;
+                    tbWaitDone(0, ChSink_c, 100_000 * ClkPeriod_c, "context before a load");
+                    query(0);
+                    check_value(Query_KeyValid, '1', ERROR, "slot valid after a load " & to_string(d) & " cycles after a context");
+                    check_value(Query_Fixed, OcrVec_v.keyFixed(1, 0), ERROR,
+                                "fixed field of a load " & to_string(d) & " cycles after a context");
+                    check_value(Query_Counter, OcrVec_v.keyCounter(1, 0), ERROR,
+                                "counter of a load " & to_string(d) & " cycles after a context");
+                end loop;
+
+                -- A zeroize 0 to 3 cycles after a context: the job of the context is resolved before the erasure,
+                -- its counter write-back does not survive the erasure
+                for d in 0 to 3 loop
+                    contextThen(VecDir_g & "/ivlock.txt", d);
+                    T0_v    := now;
+                    Zeroize <= '1';
+                    syncClk;
+                    Zeroize <= '0';
+                    waitIdle;
+                    check_value((now - T0_v) / ClkPeriod_c <= NumKeys_g + 3, ERROR,
+                                "duration of an erasure " & to_string(d) & " cycles after a context");
+                    tbWaitDone(0, ChSink_c, 100_000 * ClkPeriod_c, "context before a zeroize");
+
+                    for s in 0 to 2 ** SlotBits_c - 1 loop
+                        query(s);
+                        check_value(Query_KeyValid, '0', ERROR, "slot " & to_string(s) & " erased");
+                        check_value(Query_Counter, (63 downto 0 => '0'), ERROR, "counter of slot " & to_string(s));
+                        check_value(Query_Fixed, (31 downto 0 => '0'), ERROR, "fixed field of slot " & to_string(s));
                     end loop;
 
                 end loop;
@@ -581,7 +682,10 @@ begin
             ErrInj_BitFlip  => ErrInj_BitFlip,
             ErrInj_Valid    => ErrInj_Valid,
             AuxRequests     => AuxRequests,
-            JobReadyStall   => JobReadyStall
+            JobReadyStall   => JobReadyStall,
+            CtxPause        => CtxPause,
+            CtxValid        => CtxValid,
+            CtxReady        => CtxReady
         );
 
 end architecture;
