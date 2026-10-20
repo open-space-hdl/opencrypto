@@ -333,12 +333,12 @@ responsibility, the Open Logic entities it is built from and the clauses it owns
 | --- | --- | --- | --- | --- |
 | IN-1 | Input parser | Takes the job of the message, holds one beat back to find the end of every section, checks the section order, the byte enables and the TAG length, consumes rejected messages, forwards beats with their flags | `olo_ft_fifo_sync` (data FIFO) | GCM 5.2, 5.2.1.1, 10; CCSDS 4.3.2 |
 | IN-2 | Counter blocks | J0 and the counter blocks IV ‖ [i + 1]<sub>32</sub> of the DATA blocks, requests to AE-1 with credits, priority of hash subkey requests | none | GCM 6.2 |
-| CT-1 | GCTR combiner | XORs every DATA beat with its part of the keystream block (partial last block: leftmost bytes), passes AAD, routes AAD and ciphertext to GH-1, collects the received tag, reports ECC errors of the message | `olo_ft_fifo_sync` (keystream, J0) | GCM 5.3, 6.5, 7.1; CCSDS 3.3, 3.4.1 |
+| CT-1 | GCTR combiner | XORs every DATA beat with its part of the keystream block (partial last block: leftmost bytes), passes AAD, routes AAD and ciphertext to GH-1, collects the received tag, reports ECC errors of the message | `olo_ft_fifo_sync` (keystream, J0), `olo_base_pl_stage` (register of the data FIFO) | GCM 5.3, 6.5, 7.1; CCSDS 3.3, 3.4.1 |
 | TG-1 | Tag | T = S ⊕ CIPH<sub>K</sub>(J0); encryption: the tag; decryption: comparison with the received tag, verdict; status code of the message | `olo_ft_fifo_sync` | GCM 5.2.1.2, 5.2.2, 7.2; CCSDS 3.4.2 |
 | OU-1 | Output assembly | IV section of a generated IV, AAD and data beats, TAG section of an encryption (zeros on failure), held last beat and error flag of a decryption, empty beat of a rejected message | `olo_ft_fifo_sync` (output FIFO) | none (format of section 6) |
 | OU-2 | Release buffer | Optional store-and-forward of the output messages, drops messages whose status is not OK and messages longer than the buffer | `olo_ft_fifo_packet` | none (GCM 7.2 step 8 through TG-1) |
 | OU-3 | Status | One status per message: code, direction, slot, IV, AAD and DATA bytes | `olo_ft_fifo_sync` | none |
-| OU-4 | Output packer | Optional (`DenseOutput_g`): closes the gaps at the section ends of the output messages, the section code of the first byte of every beat, the error flag on the last beat | none | none (D14) |
+| OU-4 | Output packer | Optional (`DenseOutput_g`): closes the gaps at the section ends of the output messages, the section code of the first byte of every beat, the error flag on the last beat | `olo_base_pl_stage` (input register) | none (D14) |
 
 ### 7.3 GHASH
 
@@ -352,7 +352,7 @@ responsibility, the Open Logic entities it is built from and the clauses it owns
 | --- | --- | --- | --- | --- |
 | KT-1 | Key memories | Key, hash subkey and IV state of every slot with valid flags in protected words, scrubbing, erasure after the reset and on zeroize | `olo_ft_ram_sdp_scrub` | GCM 5.3 (no read path to the key and H) |
 | KT-2 | Key load | Writes key and IV state of a slot, computes H = CIPH<sub>K</sub>(0<sup>128</sup>) with AE-1, validates the slot | none | GCM 7.1 step 1, 7.2 step 2; AES 6.2 |
-| KT-3 | Context resolution | Reads the slot of each context, checks range, validity and IV construction, builds the job (key, H, IV) | none | GCM 8.2 |
+| KT-3 | Context resolution | Reads the slot of each context, checks range, validity and IV construction, builds the job (key, H, IV) | `olo_ft_fifo_sync` (job FIFO), `olo_base_pl_stage` (job register) | GCM 8.2 |
 | KT-4 | IV generation unit | IV = fixed field ‖ invocation counter, increment per invocation, exhaustion, counter readable for its backup | none | GCM 8, 8.2.1, 8.3, 9.1 |
 
 ### 7.5 Management
@@ -397,7 +397,7 @@ A module is one group of blocks with its own specification, verification plan, t
 | `olo_ft_fifo_sync` | IN-1, CT-1, TG-1, OU-1, OU-3, GH-1, KT-3, FR-1 | Data, keystream, J0, hash, output, hash subkey, descriptor, summary, result, status, job and chunk position FIFOs with ECC |
 | `olo_ft_fifo_packet` | OU-2, FR-1 | Release buffer: store-and-forward of complete output messages, drop of failed messages; chunk buffer of the framer |
 | `olo_base_chunker` | FR-1 | Cuts the input packets of the framer into chunks |
-| `olo_base_pl_stage` | GH-1, FR-1 | Block queue of GHASH; output register of the framer |
+| `olo_base_pl_stage` | GH-1, FR-1, KT-3, CT-1, OU-4 | Block queue of GHASH; output register of the framer; registers of the jobs, of the data FIFO and in front of the packer |
 | `olo_ft_ram_sdp_scrub` | KT-1 | Key, hash subkey and IV memories with ECC and background scrubbing |
 | `olo_axi_lite_slave` | MG-1 | AXI4-Lite access to the register file |
 | `olo_ft_ecc_monitor` | MG-2 | SEC and DED counters per table and buffer, DED sticky flags |

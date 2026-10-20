@@ -151,9 +151,9 @@ beat are valid except in the last beat of the message, whose valid bytes are con
 
 The bytes, the status and the error flag are the same in both formats; a message without any byte is one beat without
 valid byte in both. The section boundaries follow from the lengths: the IV section has 12 bytes, the TAG section 16
-bytes, and the status reports the AAD and DATA bytes. The packer adds one clock cycle of latency; after the last beat
-of a message whose bytes need one more output beat it takes no input for one cycle. Use the sectioned output when
-the output feeds the input of a second core (decryption).
+bytes, and the status reports the AAD and DATA bytes. The packer and its input register add two clock cycles of
+latency; after the last beat of a message whose bytes need one more output beat the packer takes no input for one
+cycle. Use the sectioned output when the output feeds the input of a second core (decryption).
 
 ### 4.6 Framer (`ocr_framer`)
 
@@ -306,7 +306,7 @@ difference. The parts of a message cost, with the default numbers of AES units a
 | Tag | 16 / B, at the output of encryptions and at the input of decryptions | TC-CO-10, TC-CO-11 |
 | Generated IV | ceil(12 / B) output beats. Consecutive encryptions with generated IVs need at least three output beats per message (the IV generation unit updates the counter of the slot once per message) | TC-CO-14 |
 | J0 (pre-counter block) | None: E(K, J0) takes one block of the AES engine per message, in a cycle without keystream request | TC-CO-10, TC-CO-14 |
-| Dense output | Encryptions take the cycles of the sectioned output and send fewer beats in them, plus one cycle when 12 g + A + P is not a multiple of B (the last beat does not fit into the output beat with the bytes before it). Decryptions lose at most one input cycle per message. Latency: one cycle | TC-CO-10, TC-CO-11, TC-CO-14, TC-PA-03 |
+| Dense output | Encryptions take the cycles of the sectioned output and send fewer beats in them, plus one cycle when 12 g + A + P is not a multiple of B (the last beat does not fit into the output beat with the bytes before it). Decryptions lose at most one input cycle per message. Latency: two cycles | TC-CO-10, TC-CO-11, TC-CO-14, TC-PA-03 |
 | Release buffer (`ReleaseBuffer_g`) | One to two cycles per message while the buffer holds two consecutive messages (2 M ≤ D for messages of M sectioned output beats in a buffer of D = `ReleaseBytes_g` / B beats). With 2 M > D a message takes up to 3 M - D + 4 cycles, because the next message waits for the space of the one before. A message leaves only when its last beat is in the buffer | TC-CO-10, TC-CO-11, TC-CO-15, TC-CO-16 |
 | Start of a sequence | At most 40 cycles without a beat in total | TC-CO-10, TC-CO-11 |
 
@@ -316,10 +316,11 @@ the defaults, a message takes at least (ceil(P / 16) + 1) · Nr / `AesUnits_g` c
 and length block, TC-GH-03); the largest of these figures and the beats sets the rate.
 
 Contexts: one per message, handed over before or with its message. The key table resolves one context per clock
-cycle with an external IV and one per two cycles with a generated IV (TC-KT-09); up to four resolved contexts wait in
-its job FIFO. The key slot can change from message to message without a lost cycle: the throughput tests draw the
-slot of every message from up to three slots (TC-CO-10, TC-CO-11). The throughput of mixed sequences of encryptions
-and decryptions and of key loads during traffic is not characterised.
+cycle with an external IV and one per three cycles with a generated IV (TC-KT-09); up to seven resolved contexts wait
+in its job FIFO (five) and the output register behind it (two). The key slot can change from message to message
+without a lost cycle: the throughput tests draw the slot of every message from up to three slots (TC-CO-10,
+TC-CO-11). The throughput of mixed sequences of encryptions and decryptions and of key loads during traffic is not
+characterised.
 
 Every core has its own key table and data path, so N cores carry N times the rate of one core. Cores that use the
 same key need distinct fixed fields (section 8).
