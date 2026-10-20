@@ -26,7 +26,7 @@ subkeys have no read path.
 | ID | Requirement | Clauses |
 | --- | --- | --- |
 | KT-MEM-01 | Key, hash subkey and IV state shall be held in scrubbed SECDED memories, with the valid flags inside the protected words. | GCM 5.3 |
-| KT-MEM-02 | After the reset and on zeroize every slot shall be erased (key, hash subkey, IV state and valid flags) within `NumKeys_g` + 3 clock cycles; `Busy` shall be '1' while an erasure or a load is in progress, and contexts, loads and queries shall wait for the end of the erasure; a zeroize during a load or a context read shall take effect after it. | GCM 5.1 |
+| KT-MEM-02 | After the reset and on zeroize every slot shall be erased (key, hash subkey, IV state and valid flags) within `NumKeys_g` + 3 clock cycles, after a zeroize during a load within `NumKeys_g` + 3 clock cycles after the end of the load; `Busy` shall be '1' while an erasure or a load is in progress, and contexts, loads and queries shall wait for the end of the erasure; a context or query read before the zeroize shall be resolved with the slot before the erasure, and its counter update shall not survive the erasure. | GCM 5.1 |
 | KT-LD-01 | A load shall write key, IV construction, fixed field and invocation counter and invalidate the slot; the slot shall become valid when its hash subkey H = CIPH<sub>K</sub>(0<sup>128</sup>) is written. Every key of `KeyBits_g` bits shall be accepted. | GCM 7.1, 7.2; AES 6.2 |
 | KT-LD-02 | A load shall not disturb the resolution of the contexts of the other slots. | none (D7) |
 
@@ -44,7 +44,7 @@ subkeys have no read path.
 
 | ID | Requirement | Clauses |
 | --- | --- | --- |
-| KT-PF-01 | While jobs are taken, the table shall resolve one context per clock cycle with external IVs and one context per two clock cycles with generated IVs. | none (D3) |
+| KT-PF-01 | While jobs are taken, the table shall resolve one context per clock cycle with external IVs and one context per three clock cycles with generated IVs. | none (D3) |
 | KT-FT-01 | A single error in a memory or in the job FIFO shall be corrected with an ECC event; a double error shall produce the error ECC in the job (with key and hash subkey of zeros) or the double error flag in the query, with an ECC event; the scrubbers shall correct single errors of slots that no context reads; every memory and the job FIFO shall take an error injection. | none (P5) |
 
 ## 3. Interpretation of the standard

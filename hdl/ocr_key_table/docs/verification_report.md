@@ -18,10 +18,19 @@ GHDL runs before 2026-10-14 passed one list of simulator flags to all simulation
 generics of every test to it), so a GHDL test could run with generics of an earlier test. QuestaSim was not
 affected. Since then every GHDL simulation has its own flags and `run.py` checks its generics.
 
+Run on 2026-10-20 with GHDL 6.0.0 (mcode), Open Logic 4.7.0-ft.9, after the change to registered memory words, two read
+stages with the IV interlock, a job FIFO of five entries and the output register of the jobs: `ocr_key_table_tb` 65 of
+65 (TC-KT-11 added, TC-KT-09 with 3 (N - 1) cycles for N contexts with generated IVs), full regression 447 of 447
+passed, 0 skipped; the QuestaSim runs above predate the change. Mutation checks of the IV interlock, each fails TC-KT-11
+in all six configurations: without the stage 1 term of the interlock and without its stage 2 term (repeated IVs;
+TC-KT-03 to TC-KT-06 and TC-KT-09 fail as well), without the interlock of the loads (the write-back replaces the loaded
+IV word), and with the counter write-back assigned after the erasure (the erased slot 0 keeps a counter).
+
 ## 2. Summary
 
 All test cases pass; every requirement of the specification is covered (see the verification plan). Contexts are
-resolved at one per cycle with external IVs and one per two cycles with generated IVs in every configuration (TC-KT-09).
+resolved at one per cycle with external IVs and one per three cycles with generated IVs in every configuration
+(TC-KT-09).
 VSG reports no errors and no warnings; `ghdl --synth` elaborates the core with this module in ten configurations without
 latches.
 
@@ -36,6 +45,8 @@ Findings:
 | Code coverage: a query accepted in the cycle after another query was not answered (the response pulse of the first query cleared the pulse of the second) | The response pulse is cleared before it is set; TC-KT-02 sends queries in consecutive cycles and counts the answers (the old logic answers 6 of 11) |
 | Code coverage: a load requested during an erasure, a zeroize during a load and during context reads, an injection requested during a load and a double error in the job of a generated IV were not exercised | TC-KT-05 and TC-KT-07 extended |
 | The paced scrubbers (`ScrubPeriod_g` > 0) had never been simulated or synthesised, the documented range allowed periods below the resolution of 1 ms, and `KeyBits_g` was not checked | `k256_n4_paced` runs every test at 1 MHz with a scrub pass every 2 ms (the clock of the bench follows `ClkFreqHz_g`); `lint/synth_check.py` synthesises a period of 1 ms; range corrected; assertion KT-IF-06 |
+| Setup timing at 200 MHz on an AMD Versal device: a read went through the SECDED decoder, the context resolution, the scrubber multiplexer and the encoder of the next memory in one cycle | The memories register their decoded word; two read stages with the IV interlock and a job FIFO of five entries (TC-KT-09, TC-KT-11) |
+| The erasure waited for the reads in flight, a condition that no test could make fail: the erasure writes take the write ports in the cycle of the last possible counter write-back | The wait is removed; the write port priority of the erasure is the guarantee, and TC-KT-11 fails when the priority is swapped |
 
 ## 3. Generic values
 

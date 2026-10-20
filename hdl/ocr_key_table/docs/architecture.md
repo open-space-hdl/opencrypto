@@ -13,21 +13,25 @@ and job FIFO](img/ocr_key_table_arch.drawio.svg)
 
 All three memories are `olo_ft_ram_sdp_scrub` with max(2, `NumKeys_g`) words; the valid flags are protected by the
 SECDED code of their word, so a single event upset can neither activate an erased slot nor change its construction
-unnoticed. The memories share one read address and read in the same cycle; each has its own write address.
+unnoticed. The memories share one read address and read in the same cycle; each has its own write address. Each
+memory registers its decoded word (`EccPipeline_g` = 1), so the word of a read is available two cycles after the read.
 
 ## 2. Erasure (KT-1)
 
 After the reset the table writes zeros to every word of the three memories, one word per clock cycle. The zeroize
-command sets a pending flag; the erasure starts when no load and no context read is in progress, so that an
-operation that started before the command cannot write into an erased slot. `Busy` is '1' from the command (or the
-reset) to the end of the erasure and during every load. Contexts, loads and queries are not accepted during the
+command sets a pending flag; the erasure writes start two cycles after the command, or after the end of a load in
+progress, so that a load that started before the command cannot write into an erased slot. No read is accepted after
+the cycle of the command. A read accepted up to then is resolved with the slot before the erasure, and its counter
+write-back (section 4) falls at the latest into the first cycle of the erasure; in such a cycle the erasure takes the
+write ports, so no write-back survives the erasure and an erased slot reads zero. `Busy` is '1' from the command (or
+the reset) to the end of the erasure and during every load. Contexts, loads and queries are not accepted during the
 erasure. A zeroize during an erasure is followed by a second erasure.
 
 ## 3. Key load (KT-2)
 
 | State | Action | Next |
 | --- | --- | --- |
-| `LdIdle_s` | Accept a load when no erasure is pending and no counter update uses the write port: write the key word (valid, construction, key), the IV word and an invalid H word, keep the key | `LdAux_s` (slot in range), `LdIdle_s` (slot out of range, ignored) |
+| `LdIdle_s` | Accept a load when no erasure is pending and no context with a generated IV is in the read pipeline (IV interlock, section 4): write the key word (valid, construction, key), the IV word and an invalid H word, keep the key | `LdAux_s` (slot in range), `LdIdle_s` (slot out of range, ignored) |
 | `LdAux_s` | Request CIPH<sub>K</sub>(0<sup>128</sup>) on `M_Aux` | `LdWait_s` when the request is taken |
 | `LdWait_s` | Take the result on `S_Aux`, write the H word with its valid flag, clear the kept key | `LdIdle_s` |
 | others | Recovery | `LdIdle_s` |
@@ -39,10 +43,13 @@ is written.
 ## 4. Context resolution and IV generation (KT-3, KT-4)
 
 A read serves a query or a context; a query wins. A context is read only when a job credit is available: the credit
-counter starts at the depth of the job FIFO (4), a read takes one, a job that leaves the FIFO returns one. The FIFO
-therefore always has room for the job of a read and needs no back-pressure on the result path.
+counter starts at the depth of the job FIFO (5), a read takes one, a job that leaves the FIFO returns one. The FIFO
+therefore always has room for the job of a read and needs no back-pressure on the result path. A read holds its credit
+for four cycles (two read stages and two cycles of FIFO latency), so five credits sustain one context per cycle. A job
+leaves the FIFO into an output register (`olo_base_pl_stage`), which holds up to two jobs.
 
-The result of a read is evaluated in the next cycle:
+The context of a read passes two stages: stage 1 in the cycle after the read, stage 2 in the cycle in which the
+memories deliver the registered word. The result is evaluated in stage 2:
 
 | Condition | Job error | Job IV |
 | --- | --- | --- |
@@ -54,10 +61,16 @@ The result of a read is evaluated in the next cycle:
 | External IV, otherwise | OK | IV of the context |
 | Double error in one of the three words | ECC (wins) | as above |
 
-A job with an error carries zeros instead of the key and the hash subkey. A slot number out of range reads address 0
-and discards the result. A generated IV writes the counter + 1 back through the write port of the IV memory in the
-same cycle; no read is issued in that cycle, so the next context of the same slot reads the updated counter. A
-generated IV therefore takes two clock cycles, an external IV one (KT-PF-01).
+A job with an error carries zeros instead of the key and the hash subkey; a job with a double error in the job FIFO
+is masked before the output register. A slot number out of range reads address 0 and discards the result. A
+generated IV writes the counter + 1 back through the write port of the IV memory in stage 2.
+
+IV interlock: while stage 1 or stage 2 holds a context with a generated IV, the table issues no read and accepts no
+load, so the next read of a slot sees the updated counter and the write-back never overwrites a load. The interlock
+depends on the stage registers only; the written-back counter is not forwarded to a read. A context with a generated
+IV therefore takes three clock cycles, a context with an external IV one (KT-PF-01). A load in the cycle of a context
+read of the same slot is outside the interlock: the read sees the previous word, and its write-back replaces the
+loaded IV word. The programming sequence of the user guide excludes it (no contexts of a slot during its load).
 
 The query response holds valid flag (both words valid and slot in range), construction, fixed field, counter, the
 exhausted flag (counter = 2<sup>64</sup> - 1) and the double error flag of the read; it carries no key and no hash
@@ -84,7 +97,7 @@ not take the injection.
 | --- | --- |
 | 0, 1, 2 | Read of the key, H and IV memory |
 | 3, 4, 5 | Scrubber of the key, H and IV memory |
-| 6 | Job FIFO (output of a job) |
+| 6 | Job FIFO (a job leaving the FIFO) |
 
 ## 7. Ports
 

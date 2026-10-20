@@ -18,6 +18,11 @@ GHDL runs before 2026-10-14 passed one list of simulator flags to all simulation
 generics of every test to it), so a GHDL test could run with generics of an earlier test. QuestaSim was not
 affected. Since then every GHDL simulation has its own flags and `run.py` checks its generics.
 
+Run on 2026-10-20 with GHDL 6.0.0 (mcode), Open Logic 4.7.0-ft.9, with the register stages of the core:
+`ocr_framer_tb` 40 of 40, full regression 447 of 447 passed, 0 skipped; the QuestaSim runs above predate the change.
+TC-FR-08: the input has 184, 73 and 49 cycles without a beat at 16, 32 and 64 bits (was 185, 81 and 50); every chunk
+still takes exactly C(n) cycles, and all other figures are unchanged.
+
 ## 2. Summary
 
 All test cases pass; every requirement of the specification is covered and every seam to the core is crossed (see

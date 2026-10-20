@@ -109,14 +109,27 @@ architecture rtl of ocr_key_table is
     constant Depth_c    : positive := maximum(2, NumKeys_g);
     constant AddrBits_c : positive := log2ceil(Depth_c);
     -- Key word: valid, IV construction, key; H word: valid, H; IV word: fixed field, invocation counter
-    constant KeyW_c     : positive                      := KeyBits_g + 2;
-    constant HW_c       : positive                      := 129;
-    constant IvW_c      : positive                      := 96;
-    constant JobW_c     : positive                      := 1 + KeyBits_g + 128 + 96 + 1 + 4 + SlotBits_c;
-    constant JobDepth_c : positive                      := 4;
+    constant KeyW_c     : positive := KeyBits_g + 2;
+    constant HW_c       : positive := 129;
+    constant IvW_c      : positive := 96;
+    constant JobW_c     : positive := 1 + KeyBits_g + 128 + 96 + 1 + 4 + SlotBits_c;
+    -- Depth of the job FIFO and number of job credits: a read holds its credit for four cycles (two read stages,
+    -- two cycles of FIFO latency), so five credits sustain one context per cycle
+    constant JobDepth_c : positive                      := 5;
     constant CntMax_c   : std_logic_vector(63 downto 0) := (others => '1');
 
     type LoadState_t is (LdIdle_s, LdAux_s, LdWait_s);
+
+    -- Context of a read: stage 1 in the cycle after the read, stage 2 with the registered word of the memories
+    type RdStage_t is record
+        Valid   : std_logic;
+        Query   : std_logic;
+        Dec     : std_logic;
+        Slot    : std_logic_vector(SlotBits_c - 1 downto 0);
+        IvGen   : std_logic;
+        Iv      : std_logic_vector(95 downto 0);
+        InRange : std_logic;
+    end record;
 
     type TwoProcess_r is record
         Init      : std_logic;
@@ -125,14 +138,9 @@ architecture rtl of ocr_key_table is
         LoadState : LoadState_t;
         LoadSlot  : std_logic_vector(SlotBits_c - 1 downto 0);
         LoadKey   : std_logic_vector(KeyBits_g - 1 downto 0);
-        -- Read issued in the previous cycle
-        RdValid   : std_logic;
-        RdQuery   : std_logic;
-        RdDec     : std_logic;
-        RdSlot    : std_logic_vector(SlotBits_c - 1 downto 0);
-        RdIvGen   : std_logic;
-        RdIv      : std_logic_vector(95 downto 0);
-        RdInRange : std_logic;
+        -- Reads issued one (stage 1) and two (stage 2) cycles before
+        Rd1       : RdStage_t;
+        Rd2       : RdStage_t;
         JobCredit : unsigned(2 downto 0);
         -- Query response
         QValid    : std_logic;
@@ -177,6 +185,13 @@ architecture rtl of ocr_key_table is
     signal Job_InData   : std_logic_vector(JobW_c - 1 downto 0);
     signal Job_OutValid : std_logic;
     signal Job_OutData  : std_logic_vector(JobW_c - 1 downto 0);
+    signal Job_PopReady : std_logic;
+    signal Job_MaskKey  : std_logic_vector(KeyBits_g - 1 downto 0);
+    signal Job_MaskH    : Block_t;
+    signal Job_MaskOut  : std_logic;
+    signal Job_MaskErr  : Status_t;
+    signal Job_RegData  : std_logic_vector(JobW_c - 1 downto 0);
+    signal Job_StgData  : std_logic_vector(JobW_c - 1 downto 0);
     signal Job_Sec      : std_logic;
     signal Job_Ded      : std_logic;
     signal Scrub_Sec    : std_logic_vector(2 downto 0);
@@ -204,16 +219,17 @@ begin
         severity failure;
 
     p_comb : process (all) is
-        variable v       : TwoProcess_r;
-        variable Ded_v   : std_logic;
-        variable Err_v   : Status_t;
-        variable Iv_v    : std_logic_vector(95 downto 0);
-        variable Key_v   : std_logic_vector(KeyBits_g - 1 downto 0);
-        variable H_v     : Block_t;
-        variable IvOut_v : std_logic;
-        variable WrBk_v  : boolean;
-        variable Issue_v : boolean;
-        variable Slot_v  : unsigned(SlotBits_c - 1 downto 0);
+        variable v        : TwoProcess_r;
+        variable Ded_v    : std_logic;
+        variable Err_v    : Status_t;
+        variable Iv_v     : std_logic_vector(95 downto 0);
+        variable Key_v    : std_logic_vector(KeyBits_g - 1 downto 0);
+        variable H_v      : Block_t;
+        variable IvOut_v  : std_logic;
+        variable WrBk_v   : boolean;
+        variable IvLock_v : boolean;
+        variable Issue_v  : boolean;
+        variable Slot_v   : unsigned(SlotBits_c - 1 downto 0);
     begin
         -- hold variables stable
         v := r;
@@ -241,21 +257,21 @@ begin
         end if;
 
         -------------------------------------------------------------------------------------------
-        -- KT-3, KT-4: context of the read of the previous cycle
+        -- KT-3, KT-4: context of the read two cycles before (stage 2) with the registered word of the memories
         -------------------------------------------------------------------------------------------
         WrBk_v  := false;
         Ded_v   := Key_RdDed or H_RdDed or Iv_RdDed;
         Err_v   := StsOk_c;
-        Iv_v    := r.RdIv;
+        Iv_v    := r.Rd2.Iv;
         Key_v   := Key_RdData(KeyBits_g - 1 downto 0);
         H_v     := H_RdData(127 downto 0);
         IvOut_v := '0';
-        if r.RdInRange = '0' or Key_RdData(KeyBits_g + 1) = '0' or H_RdData(128) = '0' then
+        if r.Rd2.InRange = '0' or Key_RdData(KeyBits_g + 1) = '0' or H_RdData(128) = '0' then
             -- Slot out of range or not loaded (its hash subkey not yet computed)
             Err_v := StsKey_c;
-        elsif r.RdIvGen = '1' then
+        elsif r.Rd2.IvGen = '1' then
             -- GCM 8.2: generated IVs only for encryptions with a slot of the deterministic construction
-            if r.RdDec = '1' or Key_RdData(KeyBits_g) = '0' then
+            if r.Rd2.Dec = '1' or Key_RdData(KeyBits_g) = '0' then
                 Err_v := StsIvMode_c;
             elsif Iv_RdData(63 downto 0) = CntMax_c then
                 -- GCM 8.3: the invocation counter is exhausted
@@ -266,7 +282,7 @@ begin
                 IvOut_v := '1';
                 WrBk_v  := true;
             end if;
-        elsif r.RdDec = '0' and Key_RdData(KeyBits_g) = '1' then
+        elsif r.Rd2.Dec = '0' and Key_RdData(KeyBits_g) = '1' then
             -- GCM 8.2: a slot of the deterministic construction encrypts only with generated IVs
             Err_v := StsIvMode_c;
         end if;
@@ -279,12 +295,12 @@ begin
             H_v     := (others => '0');
             IvOut_v := '0';
         end if;
-        Job_InData <= r.RdDec & Key_v & H_v & Iv_v & IvOut_v & Err_v & r.RdSlot;
+        Job_InData <= r.Rd2.Dec & Key_v & H_v & Iv_v & IvOut_v & Err_v & r.Rd2.Slot;
 
-        if r.RdValid = '1' then
-            if r.RdQuery = '1' then
+        if r.Rd2.Valid = '1' then
+            if r.Rd2.Query = '1' then
                 v.QValid    := '1';
-                v.QKeyValid := Key_RdData(KeyBits_g + 1) and H_RdData(128) and r.RdInRange;
+                v.QKeyValid := Key_RdData(KeyBits_g + 1) and H_RdData(128) and r.Rd2.InRange;
                 v.QIvGen    := Key_RdData(KeyBits_g);
                 v.QFixed    := Iv_RdData(95 downto 64);
                 v.QCounter  := Iv_RdData(63 downto 0);
@@ -299,59 +315,60 @@ begin
                 if WrBk_v then
                     -- The next IV of the slot: invocation counter + 1
                     Iv_WrEna  <= '1';
-                    Iv_WrAddr <= std_logic_vector(resize(unsigned(r.RdSlot), AddrBits_c));
+                    Iv_WrAddr <= std_logic_vector(resize(unsigned(r.Rd2.Slot), AddrBits_c));
                     Iv_WrData <= Iv_RdData(95 downto 64) & std_logic_vector(unsigned(Iv_RdData(63 downto 0)) + 1);
                 end if;
             end if;
         end if;
-        if not (r.RdValid = '1' and r.RdQuery = '0') then
-            WrBk_v := false;
-        end if;
-        v.RdValid := '0';
+        v.Rd2       := r.Rd1;
+        v.Rd1.Valid := '0';
 
         -- Job credits: taken by a context read, returned when its job leaves the job FIFO
-        if Job_OutValid = '1' and M_Job_Ready = '1' then
+        if Job_OutValid = '1' and Job_PopReady = '1' then
             v.JobCredit := v.JobCredit + 1;
         end if;
 
         -------------------------------------------------------------------------------------------
-        -- Reads: a query, else a context. No read in the cycle of a counter update, so that a context of the same
-        -- slot reads the updated counter.
+        -- Reads: a query, else a context. IV interlock: while stage 1 or stage 2 holds a context with a generated
+        -- IV, whose counter is written back in stage 2, no read and no load is issued, so that the next read of
+        -- the slot sees the updated counter and the write-back does not overwrite a load.
         -------------------------------------------------------------------------------------------
         S_Ctx_Ready   <= '0';
         S_Query_Ready <= '0';
-        Issue_v       := r.Init = '0' and r.ZeroPend = '0' and not WrBk_v;
+        IvLock_v      := (r.Rd1.Valid = '1' and r.Rd1.Query = '0' and r.Rd1.IvGen = '1') or
+                         (r.Rd2.Valid = '1' and r.Rd2.Query = '0' and r.Rd2.IvGen = '1');
+        Issue_v       := r.Init = '0' and r.ZeroPend = '0' and not IvLock_v;
         -- A slot out of range reads address 0; its result is discarded
         if Issue_v and S_Query_Valid = '1' and r.QValid = '0' then
             S_Query_Ready <= '1';
             Rd_Ena        <= '1';
             Slot_v        := unsigned(S_Query_Slot);
             if Slot_v < NumKeys_g then
-                Rd_Addr     <= std_logic_vector(resize(Slot_v, AddrBits_c));
-                v.RdInRange := '1';
+                Rd_Addr       <= std_logic_vector(resize(Slot_v, AddrBits_c));
+                v.Rd1.InRange := '1';
             else
-                Rd_Addr     <= (others => '0');
-                v.RdInRange := '0';
+                Rd_Addr       <= (others => '0');
+                v.Rd1.InRange := '0';
             end if;
-            v.RdValid := '1';
-            v.RdQuery := '1';
+            v.Rd1.Valid := '1';
+            v.Rd1.Query := '1';
         elsif Issue_v and S_Ctx_Valid = '1' and r.JobCredit /= 0 then
             S_Ctx_Ready <= '1';
             Rd_Ena      <= '1';
             Slot_v      := unsigned(S_Ctx_Slot);
             if Slot_v < NumKeys_g then
-                Rd_Addr     <= std_logic_vector(resize(Slot_v, AddrBits_c));
-                v.RdInRange := '1';
+                Rd_Addr       <= std_logic_vector(resize(Slot_v, AddrBits_c));
+                v.Rd1.InRange := '1';
             else
-                Rd_Addr     <= (others => '0');
-                v.RdInRange := '0';
+                Rd_Addr       <= (others => '0');
+                v.Rd1.InRange := '0';
             end if;
-            v.RdValid   := '1';
-            v.RdQuery   := '0';
-            v.RdDec     := S_Ctx_Decrypt;
-            v.RdSlot    := S_Ctx_Slot;
-            v.RdIvGen   := S_Ctx_IvGen;
-            v.RdIv      := S_Ctx_Iv;
+            v.Rd1.Valid := '1';
+            v.Rd1.Query := '0';
+            v.Rd1.Dec   := S_Ctx_Decrypt;
+            v.Rd1.Slot  := S_Ctx_Slot;
+            v.Rd1.IvGen := S_Ctx_IvGen;
+            v.Rd1.Iv    := S_Ctx_Iv;
             v.JobCredit := v.JobCredit - 1;
         end if;
 
@@ -365,7 +382,7 @@ begin
         case r.LoadState is
             when LdIdle_s =>
                 -- Key, IV construction and IV state; the slot is not valid before its hash subkey is written
-                if S_Load_Valid = '1' and r.Init = '0' and r.ZeroPend = '0' and not WrBk_v then
+                if S_Load_Valid = '1' and r.Init = '0' and r.ZeroPend = '0' and not IvLock_v then
                     S_Load_Ready <= '1';
                     if unsigned(S_Load_Slot) < NumKeys_g then
                         Key_WrEna <= '1';
@@ -409,16 +426,20 @@ begin
         M_Aux_Key <= r.LoadKey;
 
         -------------------------------------------------------------------------------------------
-        -- KT-1: erasure after the reset and on zeroize, once no load and no read is in progress
+        -- KT-1: erasure after the reset and on zeroize, once no load is in progress. No read is issued after the
+        -- cycle of the zeroize, so the last counter write-back falls at the latest into the first cycle of the
+        -- erasure (two cycles after the zeroize).
         -------------------------------------------------------------------------------------------
         if Zeroize = '1' then
             v.ZeroPend := '1';
         end if;
-        if r.Init = '0' and r.ZeroPend = '1' and r.LoadState = LdIdle_s and r.RdValid = '0' then
+        if r.Init = '0' and r.ZeroPend = '1' and r.LoadState = LdIdle_s then
             v.Init     := '1';
             v.InitAddr := (others => '0');
             v.ZeroPend := Zeroize;
         end if;
+        -- The erasure writes are assigned after the counter write-back: in a cycle with both they take the write
+        -- ports, which guarantees that no write-back survives the erasure and an erased slot reads zero
         if r.Init = '1' then
             Wr_Addr    <= std_logic_vector(r.InitAddr);
             H_WrAddr   <= std_logic_vector(r.InitAddr);
@@ -460,27 +481,31 @@ begin
             r <= r_next;
             if Rst = '1' then
                 -- All slots are erased after the reset
-                r.Init      <= '1';
-                r.InitAddr  <= (others => '0');
-                r.ZeroPend  <= '0';
-                r.LoadState <= LdIdle_s;
-                r.LoadKey   <= (others => '0');
-                r.RdValid   <= '0';
-                r.RdInRange <= '0';
-                r.JobCredit <= to_unsigned(JobDepth_c, 3);
-                r.QValid    <= '0';
-                r.InjPend   <= '0';
+                r.Init        <= '1';
+                r.InitAddr    <= (others => '0');
+                r.ZeroPend    <= '0';
+                r.LoadState   <= LdIdle_s;
+                r.LoadKey     <= (others => '0');
+                r.Rd1.Valid   <= '0';
+                r.Rd1.InRange <= '0';
+                r.Rd2.Valid   <= '0';
+                r.Rd2.InRange <= '0';
+                r.JobCredit   <= to_unsigned(JobDepth_c, 3);
+                r.QValid      <= '0';
+                r.InjPend     <= '0';
             end if;
         end if;
     end process;
 
     -----------------------------------------------------------------------------------------------
-    -- KT-1: key, hash subkey and IV memories
+    -- KT-1: key, hash subkey and IV memories; the decoded word is registered (EccPipeline_g), so a read
+    -- delivers its word two cycles after the read (stage 2). The memories share the read address.
     -----------------------------------------------------------------------------------------------
     i_key_ram : entity olo.olo_ft_ram_sdp_scrub
         generic map (
             Depth_g       => Depth_c,
             Width_g       => KeyW_c,
+            EccPipeline_g => 1,
             ScrubClkHz_g  => ClkFreqHz_g,
             ScrubPeriod_g => ScrubPeriod_g
         )
@@ -506,6 +531,7 @@ begin
         generic map (
             Depth_g       => Depth_c,
             Width_g       => HW_c,
+            EccPipeline_g => 1,
             ScrubClkHz_g  => ClkFreqHz_g,
             ScrubPeriod_g => ScrubPeriod_g
         )
@@ -530,6 +556,7 @@ begin
         generic map (
             Depth_g       => Depth_c,
             Width_g       => IvW_c,
+            EccPipeline_g => 1,
             ScrubClkHz_g  => ClkFreqHz_g,
             ScrubPeriod_g => ScrubPeriod_g
         )
@@ -566,27 +593,50 @@ begin
             In_Ready          => open,
             Out_Data          => Job_OutData,
             Out_Valid         => Job_OutValid,
-            Out_Ready         => M_Job_Ready,
+            Out_Ready         => Job_PopReady,
             Out_EccSec        => Job_Sec,
             Out_EccDed        => Job_Ded,
             In_ErrInj_BitFlip => inj(JobW_c, ErrInj_Sel, 3, ErrInj_BitFlip),
             In_ErrInj_Valid   => ErrInj_Valid
         );
 
-    M_Job_Valid   <= Job_OutValid;
-    M_Job_Decrypt <= Job_OutData(JobW_c - 1);
     -- A job with an uncorrectable error is rejected and carries no key material
-    M_Job_Key   <= (others => '0') when Job_Ded = '1' else Job_OutData(JobW_c - 2 downto JobW_c - 1 - KeyBits_g);
-    M_Job_H     <= (others => '0') when Job_Ded = '1' else
+    Job_MaskKey <= (others => '0') when Job_Ded = '1' else Job_OutData(JobW_c - 2 downto JobW_c - 1 - KeyBits_g);
+    Job_MaskH   <= (others => '0') when Job_Ded = '1' else
                    Job_OutData(JobW_c - 2 - KeyBits_g downto JobW_c - 129 - KeyBits_g);
-    M_Job_Iv    <= Job_OutData(96 + 1 + 4 + SlotBits_c - 1 downto 1 + 4 + SlotBits_c);
-    M_Job_IvOut <= Job_OutData(4 + SlotBits_c) and not Job_Ded;
-    M_Job_Err   <= StsEcc_c when Job_Ded = '1' else Job_OutData(4 + SlotBits_c - 1 downto SlotBits_c);
-    M_Job_Slot  <= Job_OutData(SlotBits_c - 1 downto 0);
+    Job_MaskOut <= Job_OutData(4 + SlotBits_c) and not Job_Ded;
+    Job_MaskErr <= StsEcc_c when Job_Ded = '1' else Job_OutData(4 + SlotBits_c - 1 downto SlotBits_c);
+    Job_RegData <= Job_OutData(JobW_c - 1) & Job_MaskKey & Job_MaskH &
+                   Job_OutData(96 + 1 + 4 + SlotBits_c - 1 downto 1 + 4 + SlotBits_c) & Job_MaskOut & Job_MaskErr &
+                   Job_OutData(SlotBits_c - 1 downto 0);
 
-    Ecc_Sec <= (Job_Sec and Job_OutValid and M_Job_Ready) & Scrub_Sec &
+    -- Output register of the jobs: a job leaves the FIFO (and returns its credit) when it enters the register
+    i_job_stage : entity olo.olo_base_pl_stage
+        generic map (
+            Width_g => JobW_c
+        )
+        port map (
+            Clk       => Clk,
+            Rst       => Rst,
+            In_Valid  => Job_OutValid,
+            In_Ready  => Job_PopReady,
+            In_Data   => Job_RegData,
+            Out_Valid => M_Job_Valid,
+            Out_Ready => M_Job_Ready,
+            Out_Data  => Job_StgData
+        );
+
+    M_Job_Decrypt <= Job_StgData(JobW_c - 1);
+    M_Job_Key     <= Job_StgData(JobW_c - 2 downto JobW_c - 1 - KeyBits_g);
+    M_Job_H       <= Job_StgData(JobW_c - 2 - KeyBits_g downto JobW_c - 129 - KeyBits_g);
+    M_Job_Iv      <= Job_StgData(96 + 1 + 4 + SlotBits_c - 1 downto 1 + 4 + SlotBits_c);
+    M_Job_IvOut   <= Job_StgData(4 + SlotBits_c);
+    M_Job_Err     <= Job_StgData(4 + SlotBits_c - 1 downto SlotBits_c);
+    M_Job_Slot    <= Job_StgData(SlotBits_c - 1 downto 0);
+
+    Ecc_Sec <= (Job_Sec and Job_OutValid and Job_PopReady) & Scrub_Sec &
                (Iv_RdSec and Key_RdValid) & (H_RdSec and Key_RdValid) & (Key_RdSec and Key_RdValid);
-    Ecc_Ded <= (Job_Ded and Job_OutValid and M_Job_Ready) & Scrub_Ded &
+    Ecc_Ded <= (Job_Ded and Job_OutValid and Job_PopReady) & Scrub_Ded &
                (Iv_RdDed and Key_RdValid) & (H_RdDed and Key_RdValid) & (Key_RdDed and Key_RdValid);
 
 end architecture;

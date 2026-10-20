@@ -26,10 +26,10 @@ the standard" of the module specifications.
 | AES 5.2 | Key Expansion | AE-1 | AE-FN-02, PK-AES-06 | TC-AE-01, TC-AE-02, TC-PK-02, TC-PK-04, TC-PK-05 | Verified |
 | AES 5.3 | Inverse Cipher | Not implemented (GCM uses only the forward cipher, GCM 5.1, 7.2) | - | - | Not implemented |
 | AES 6.1 | Key length requirements | AE-1 | AE-FN-01 | TC-AE-01, TC-AE-02 | Verified |
-| AES 6.2 | Keying restrictions | KT-2 | AE-FN-02, KT-LD-01 | TC-AE-01, TC-AE-02, TC-KT-02 | Verified |
+| AES 6.2 | Keying restrictions | KT-2 | AE-FN-02, KT-LD-01 | TC-AE-01, TC-AE-02, TC-KT-02, TC-KT-11 | Verified |
 | AES 6.3 | Parameterization of key length, block size and round number | AE-1 | AE-FN-03, PK-GEN-01 | TC-AE-01, TC-PK-10 | Verified |
 | AES 6.4 | Implementation variations | AE-1 | AE-FN-04 | TC-AE-01, TC-AE-02 | Verified |
-| GCM 5.1 | Block cipher: approved, 128-bit block, key of at least 128 bits, secret | AE-1 | AE-FN-01, CO-FN-04, KT-IF-03, KT-MEM-02, KT-RS-01, MG-KL-01, MG-KL-03, MG-QU-01 | TC-AE-01, TC-AE-02, TC-CO-06, TC-KT-01, TC-KT-02, TC-KT-03, TC-KT-05, TC-KT-10, TC-MG-02, TC-MG-03, TC-MG-04 | Verified |
+| GCM 5.1 | Block cipher: approved, 128-bit block, key of at least 128 bits, secret | AE-1 | AE-FN-01, CO-FN-04, KT-IF-03, KT-MEM-02, KT-RS-01, MG-KL-01, MG-KL-03, MG-QU-01 | TC-AE-01, TC-AE-02, TC-CO-06, TC-KT-01, TC-KT-02, TC-KT-03, TC-KT-05, TC-KT-10, TC-KT-11, TC-MG-02, TC-MG-03, TC-MG-04 | Verified |
 | GCM 5.2 | Authenticated encryption and decryption functions, GMAC | IN-1 | CO-IF-01, GC-IF-01, GC-IN-01, GC-IN-04, GC-OU-04, GC-TG-01, GC-TG-02, GH-FN-04, KT-IF-01 | TC-CO-01, TC-CO-03, TC-GC-01, TC-GC-02, TC-GC-03, TC-GC-04, TC-GC-13, TC-GC-14, TC-GC-15, TC-GH-01, TC-GH-02, TC-GH-04, TC-KT-03 | Verified |
 | GCM 5.2.1.1 | Input data: lengths, byte strings, supported lengths, 96-bit IVs | IN-1 | GC-IF-01, GC-IN-04, GH-FN-04, KT-IF-01 | TC-GC-01, TC-GC-02, TC-GC-03, TC-GC-13, TC-GH-01, TC-GH-02, TC-GH-04, TC-KT-03 | Verified |
 | GCM 5.2.1.2 | Output data: ciphertext and tag, one tag length per key | TG-1 | GC-TG-01 | TC-GC-01, TC-GC-02, TC-GC-03 | Verified |
@@ -39,15 +39,15 @@ the standard" of the module specifications.
 | GCM 6.3 | Multiplication operation on blocks | GH-1 | GH-FN-02, PK-GF-01, PK-GF-02 | TC-GH-01, TC-GH-02, TC-PK-06, TC-PK-07 | Verified |
 | GCM 6.4 | GHASH function | GH-1 | GH-FN-03 | TC-GH-01, TC-GH-02 | Verified |
 | GCM 6.5 | GCTR function | CT-1 | GC-CB-02, GC-CT-01 | TC-GC-01, TC-GC-02, TC-GC-03 | Verified |
-| GCM 7.1 | Algorithm for the authenticated encryption function | CT-1 | CO-FN-01, CO-FN-05, FR-IN-01, GC-CB-01, GC-CT-01, GC-CT-02, GC-IF-05, GC-OU-01, GC-TG-01, GH-FN-01, KT-IF-04, KT-LD-01, MG-KL-02 | TC-CO-02, TC-CO-03, TC-CO-13, TC-FR-06, TC-FR-07, TC-GC-01, TC-GC-02, TC-GC-03, TC-GC-05, TC-GC-11, TC-GC-15, TC-GH-01, TC-GH-02, TC-KT-02, TC-MG-02 | Verified |
-| GCM 7.2 | Algorithm for the authenticated decryption function | TG-1 | CO-FN-01, CO-FN-05, GC-CB-01, GC-CT-01, GC-CT-02, GC-IF-05, GC-IN-02, GC-OU-02, GC-OU-04, GC-TG-02, GH-FN-01, KT-LD-01 | TC-CO-02, TC-CO-03, TC-CO-13, TC-GC-01, TC-GC-02, TC-GC-03, TC-GC-04, TC-GC-08, TC-GC-11, TC-GC-14, TC-GC-15, TC-GH-01, TC-GH-02, TC-KT-02 | Verified |
-| GCM 8 | Uniqueness requirement on IVs and keys | KT-4 | CO-FN-02, CO-FN-03, FR-IN-01, KT-IF-02, KT-IV-01, KT-IV-02, KT-RS-02, MG-KL-02 | TC-CO-02, TC-CO-04, TC-CO-05, TC-FR-06, TC-FR-07, TC-KT-02, TC-KT-03, TC-KT-04, TC-MG-02 | Verified |
+| GCM 7.1 | Algorithm for the authenticated encryption function | CT-1 | CO-FN-01, CO-FN-05, FR-IN-01, GC-CB-01, GC-CT-01, GC-CT-02, GC-IF-05, GC-OU-01, GC-TG-01, GH-FN-01, KT-IF-04, KT-LD-01, MG-KL-02 | TC-CO-02, TC-CO-03, TC-CO-13, TC-FR-06, TC-FR-07, TC-GC-01, TC-GC-02, TC-GC-03, TC-GC-05, TC-GC-11, TC-GC-15, TC-GH-01, TC-GH-02, TC-KT-02, TC-KT-11, TC-MG-02 | Verified |
+| GCM 7.2 | Algorithm for the authenticated decryption function | TG-1 | CO-FN-01, CO-FN-05, GC-CB-01, GC-CT-01, GC-CT-02, GC-IF-05, GC-IN-02, GC-OU-02, GC-OU-04, GC-TG-02, GH-FN-01, KT-LD-01 | TC-CO-02, TC-CO-03, TC-CO-13, TC-GC-01, TC-GC-02, TC-GC-03, TC-GC-04, TC-GC-08, TC-GC-11, TC-GC-14, TC-GC-15, TC-GH-01, TC-GH-02, TC-KT-02, TC-KT-11 | Verified |
+| GCM 8 | Uniqueness requirement on IVs and keys | KT-4 | CO-FN-02, CO-FN-03, FR-IN-01, KT-IF-02, KT-IV-01, KT-IV-02, KT-RS-02, MG-KL-02 | TC-CO-02, TC-CO-04, TC-CO-05, TC-FR-06, TC-FR-07, TC-KT-02, TC-KT-03, TC-KT-04, TC-KT-11, TC-MG-02 | Verified |
 | GCM 8.1 | Key establishment | User (fresh keys) | - | - | User obligation |
-| GCM 8.2 | IV constructions: one construction per key | KT-3 | CO-FN-02, CO-FN-03, FR-IN-01, KT-IF-02, KT-IV-01, KT-RS-02, MG-KL-02 | TC-CO-02, TC-CO-04, TC-CO-05, TC-FR-06, TC-FR-07, TC-KT-02, TC-KT-03, TC-MG-02 | Verified |
-| GCM 8.2.1 | Deterministic construction | KT-4 | CO-FN-02, FR-IN-01, KT-IV-01, MG-KL-02 | TC-CO-04, TC-FR-06, TC-FR-07, TC-KT-03, TC-MG-02 | Verified |
+| GCM 8.2 | IV constructions: one construction per key | KT-3 | CO-FN-02, CO-FN-03, FR-IN-01, KT-IF-02, KT-IV-01, KT-RS-02, MG-KL-02 | TC-CO-02, TC-CO-04, TC-CO-05, TC-FR-06, TC-FR-07, TC-KT-02, TC-KT-03, TC-KT-11, TC-MG-02 | Verified |
+| GCM 8.2.1 | Deterministic construction | KT-4 | CO-FN-02, FR-IN-01, KT-IV-01, MG-KL-02 | TC-CO-04, TC-FR-06, TC-FR-07, TC-KT-03, TC-KT-11, TC-MG-02 | Verified |
 | GCM 8.2.2 | RBG-based construction | User (external IVs) | - | - | User obligation |
 | GCM 8.3 | Constraints on the number of invocations | KT-4 | CO-FN-03, KT-IV-02 | TC-CO-02, TC-CO-05, TC-KT-04 | Verified |
-| GCM 9.1 | Design considerations: generation unit, IV protection, loss of power | KT-4 | CO-FN-02, KT-IF-03, KT-IV-03, MG-QU-01 | TC-CO-04, TC-KT-01, TC-KT-02, TC-KT-03, TC-MG-04 | Verified |
+| GCM 9.1 | Design considerations: generation unit, IV protection, loss of power | KT-4 | CO-FN-02, KT-IF-03, KT-IV-03, MG-QU-01 | TC-CO-04, TC-KT-01, TC-KT-02, TC-KT-03, TC-KT-11, TC-MG-04 | Verified |
 | GCM 9.2 | Operational considerations | User (user guide) | - | - | User obligation |
 | GCM 10 | Conformance: GCM and GMAC, supported lengths | IN-1 | GC-IN-01, GC-IN-04 | TC-GC-01, TC-GC-02, TC-GC-03, TC-GC-04, TC-GC-13, TC-GC-15 | Verified |
 | CCSDS 3.1 | AES for encryption | AE-1 | AE-FN-01 | TC-AE-01, TC-AE-02 | Verified |

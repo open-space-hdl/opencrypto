@@ -305,6 +305,30 @@ begin
     end generate;
 
     g_dense : if DenseOutput_g generate
+        constant PkW_c : positive := DataWidth_g + DataWidth_g / 8 + 4;
+
+        signal Pk_InData : std_logic_vector(PkW_c - 1 downto 0);
+        signal Pk_Valid  : std_logic;
+        signal Pk_Ready  : std_logic;
+        signal Pk_Data   : std_logic_vector(PkW_c - 1 downto 0);
+    begin
+        -- Input register of the packer: cuts the path from the output buffers of the data path to the packer
+        Pk_InData <= Gcm_OutData & Gcm_OutKeep & Gcm_OutLast & Gcm_OutUser;
+
+        i_pk_stage : entity olo.olo_base_pl_stage
+            generic map (
+                Width_g => PkW_c
+            )
+            port map (
+                Clk       => Clk,
+                Rst       => Rst,
+                In_Valid  => Gcm_OutValid,
+                In_Ready  => Gcm_OutReady,
+                In_Data   => Pk_InData,
+                Out_Valid => Pk_Valid,
+                Out_Ready => Pk_Ready,
+                Out_Data  => Pk_Data
+            );
 
         i_packer : entity work.ocr_packer
             generic map (
@@ -313,12 +337,12 @@ begin
             port map (
                 Clk         => Clk,
                 Rst         => Rst,
-                S_In_Valid  => Gcm_OutValid,
-                S_In_Ready  => Gcm_OutReady,
-                S_In_Data   => Gcm_OutData,
-                S_In_Keep   => Gcm_OutKeep,
-                S_In_Last   => Gcm_OutLast,
-                S_In_User   => Gcm_OutUser,
+                S_In_Valid  => Pk_Valid,
+                S_In_Ready  => Pk_Ready,
+                S_In_Data   => Pk_Data(PkW_c - 1 downto DataWidth_g / 8 + 4),
+                S_In_Keep   => Pk_Data(DataWidth_g / 8 + 3 downto 4),
+                S_In_Last   => Pk_Data(3),
+                S_In_User   => Pk_Data(2 downto 0),
                 M_Out_Valid => M_Out_Valid,
                 M_Out_Ready => M_Out_Ready,
                 M_Out_Data  => M_Out_Data,

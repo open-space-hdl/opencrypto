@@ -18,6 +18,10 @@ GHDL runs before 2026-10-14 passed one list of simulator flags to all simulation
 generics of every test to it), so a GHDL test could run with generics of an earlier test. QuestaSim was not
 affected. Since then every GHDL simulation has its own flags and `run.py` checks its generics.
 
+Run on 2026-10-20 with GHDL 6.0.0 (mcode), Open Logic 4.7.0-ft.9, with the output register of the data FIFO:
+`ocr_gcm_tb` 142 of 142, full regression 447 of 447 passed, 0 skipped; every figure of section 2 is unchanged. The
+QuestaSim runs above predate the change.
+
 ## 2. Summary
 
 All test cases pass; every requirement of the specification is covered (see the verification plan). Every output byte of
