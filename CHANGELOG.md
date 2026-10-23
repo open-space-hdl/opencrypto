@@ -15,6 +15,8 @@ feature and a patch version for a fix.
 - Latencies: a job leaves the key table two clock cycles later (a second read stage and the output register of the
   jobs), a data beat reaches the combiner one clock cycle later (output register of the data FIFO), and the dense
   output adds two clock cycles of latency (was one: input register of the packer).
+- Verification: the test end compares the alert counters of every level itself and ends the simulation with a
+  failure, whatever the stop limits of the test.
 
 ### Fixed
 
