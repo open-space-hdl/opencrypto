@@ -10,7 +10,7 @@ The core is at **TRL 3**: fully verified by simulation, not yet tested on hardwa
 
 | Next level | What is needed | State |
 | --- | --- | --- |
-| TRL 4 | Synthesis and timing closure on a target FPGA; hardware test of encryption and decryption against an independent AES-GCM implementation (for example pycryptodome on a host connected through a link core), with key loads, generated IVs, every status code and the error injection; hardware test plan and test report | Open (see the open items) |
+| TRL 4 | Synthesis and timing closure on a target FPGA; hardware test of encryption and decryption as part of a reference system of the family, against an independent AES-GCM implementation (for example pycryptodome on a host connected through a link core), with key loads, generated IVs, every status code and the error injection; hardware test plan and test report | Open (see the open items) |
 | TRL 5 | Single-event effects test (beam test) on a radiation-tolerant FPGA with the core in operation that confirms the single-event mitigation and quantifies the error rates; operation over the temperature range | Open |
 
 ## Modules
@@ -33,7 +33,7 @@ The core is at **TRL 3**: fully verified by simulation, not yet tested on hardwa
 | Item | State |
 | --- | --- |
 | Synthesis on a target device: resources and timing | Open; `lint/synth_check.py` checks the synthesizability of six core and two framer configurations with GHDL |
-| Hardware test against an independent AES-GCM implementation | Open |
+| Hardware test as part of a reference system of the family, against an independent AES-GCM implementation | Open |
 | Code coverage with QuestaSim | Done: [coverage.md](coverage.md) |
 | IV lengths other than 96 bits (GCM 5.2.1.1) | Not planned: 96-bit IVs are the recommended length and the only length of the deterministic construction with a 32-bit fixed field |
 | Tags shorter than 128 bits (GCM 5.2.1.2, Appendix C) | Not planned: CCSDS 352.0-B-2 3.4.2 requires 128 bits |
