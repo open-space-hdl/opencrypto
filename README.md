@@ -32,7 +32,8 @@ encrypts; modified tags, AAD and ciphertexts, format errors, wrong key slots and
 counters and injected double bit errors are detected and reported with their status. The bottleneck side of
 back-to-back messages transfers one beat per clock cycle after the initial latency. The
 [user guide](docs/user_guide.md) contains the conformance statement and the obligations that SP 800-38D leaves to the
-user. Synthesis results on a target device and a hardware test are open; see [docs/roadmap.md](docs/roadmap.md).
+user. Synthesis results on a target device and a hardware test as part of a reference system of the family are open;
+see [docs/roadmap.md](docs/roadmap.md).
 
 ## Documentation
 
