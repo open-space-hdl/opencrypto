@@ -17,6 +17,11 @@ feature and a patch version for a fix.
   output adds two clock cycles of latency (was one: input register of the packer).
 - Verification: the test end compares the alert counters of every level itself and ends the simulation with a
   failure, whatever the stop limits of the test.
+- Documentation: a functional reset of the core (`Rst` asserted while the system keeps running) erases the keys and
+  the IV state like a power-up. KT-IV-03 and the user guide (clock and reset, programming sequence, integration
+  constraints) state the duty of the software after any reset: wait until `STATUS.BUSY` is '0', reload the keys and
+  restore the invocation counters beyond every value used with the key before a slot is used again (NIST SP 800-38D
+  8, 9.1).
 
 ### Fixed
 

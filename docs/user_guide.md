@@ -58,8 +58,10 @@ its counters from `ReleaseBytes_g`, so the bound is the verified maximum, not a 
 
 All of the core runs in `Clk`; there is no clock domain crossing. `Rst` is synchronous and high-active (Open Logic
 convention); synchronise its release to `Clk`, for example with `olo_base_reset_gen` with `SyncTmr_g` = true
-(triplicated synchroniser). After the reset the key table erases every slot (`NumKeys_g` clock cycles,
-`STATUS.BUSY` = '1'); contexts and key loads are accepted afterwards. No key survives a reset.
+(triplicated synchroniser). After every reset, at power-up or a functional reset while the system keeps running, the
+key table erases every slot with its key and IV state within `NumKeys_g` + 3 clock cycles after the release of `Rst`;
+`STATUS.BUSY` is '1' until the erasure ends, and contexts and key loads are accepted afterwards. No key and no
+invocation counter survives a reset: the software reloads the keys and restores the counters (section 8).
 
 Every stream transfers one beat per clock cycle while its partner is ready; section 7 gives the clock cycles per
 message and per chunk.
@@ -227,7 +229,8 @@ bytes; every packet is unsegmented, the image boundaries are in the authenticate
 3. Load every key slot in use:
     1. Write the key to `KEY0` to `KEY3`, `KEY5` or `KEY7` (4, 6 or 8 words; key byte 4 n in bits 31:24 of `KEYn`).
     2. For a slot with generated IVs write the fixed field to `IV_FIXED` and the first invocation counter to
-       `IV_COUNT_LO` and `IV_COUNT_HI`.
+       `IV_COUNT_LO` and `IV_COUNT_HI`; after a reset, for a key used before, a counter beyond every value used with
+       the key (section 8).
     3. Write `KEY_LOAD` with `START`, the slot and `IV_GEN` ('1' generated IVs, '0' IVs of the context).
     4. Wait until `STATUS.BUSY` is '0' (or for the event `LOAD_DONE`). The staging registers are cleared.
 4. Optionally check a slot: write the slot to `SLOT_QUERY`, wait until `SLOT_STATUS.PENDING` is '0', read
@@ -373,7 +376,7 @@ that uses it; the table lists them with the support of the core and what the use
 | One IV construction per key | GCM 8.2 | Each slot is loaded for generated or for external IVs; a context with the other source fails with IV_MODE | Use one construction per key also across devices |
 | Fixed field identifies the device | GCM 8.2.1 | 32-bit fixed field per slot, from `IV_FIXED` | Assign a distinct fixed field to every device and context that uses the same key |
 | Number of invocations | GCM 8.3 | 64-bit invocation counter; the slot is exhausted at 2<sup>64</sup> - 1 (IV_EXHAUSTED) | For external IVs from an RBG: at most 2<sup>32</sup> encryptions per key |
-| No IV repetition after a loss of power | GCM 9.1 | The counter of a slot is readable (`SLOT_COUNT`) and loadable (`IV_COUNT`); after a reset no slot is valid, so the core cannot encrypt before a new load | Save the counter ahead of the operational value and load the slot after a power cycle with a counter beyond every used value, or establish a fresh key |
+| No IV repetition after a reset or a loss of power | GCM 8, 9.1 | The counter of a slot is readable (`SLOT_COUNT`) and loadable (`IV_COUNT`); every reset, at power-up or a functional reset while the system keeps running, erases every slot with its key and IV state within `NumKeys_g` + 3 clock cycles after the release of `Rst`, with `STATUS.BUSY` = '1' until the erasure ends; no slot is valid afterwards, so the core cannot encrypt before a new load | Save the counter ahead of the operational value. After every reset, wait until `STATUS.BUSY` is '0', then reload the keys and load every slot with generated IVs with a counter beyond every value used with its key before the slot is used again, or establish a fresh key. Never use an IV twice with the same key, with generated or with external IVs |
 | Plaintext only after verification | GCM 5.2.2, 7.2 | With `ReleaseBuffer_g` a decrypted message leaves only when its tag is verified; without it the plaintext streams and the last beat carries the verdict | Without release buffer: discard every message whose last beat carries the error flag or whose status is not OK |
 | Operational considerations | GCM 9.2 | | Document the key management, the fixed field assignment, the counter backup and the access control of the system |
 

@@ -38,7 +38,7 @@ subkeys have no read path.
 | KT-RS-02 | A context shall produce a job with the error IV_MODE when it requests a generated IV for a decryption or for a slot of external IVs, or when it encrypts with an external IV on a slot of generated IVs. | GCM 8.2 |
 | KT-IV-01 | A context that requests a generated IV on a valid slot of generated IVs shall produce a job with IV = fixed field ‖ invocation counter and the IV section flag, and the invocation counter of the slot shall be incremented. | GCM 8, 8.2.1 |
 | KT-IV-02 | When the invocation counter of a slot has the value 2<sup>64</sup> - 1, a context that requests a generated IV shall produce a job with the error IV_EXHAUSTED and the counter shall not change; the query shall report the slot as exhausted. | GCM 8.3 |
-| KT-IV-03 | The query shall return the current invocation counter of a slot, so that the user can save it and load the slot with it after a loss of power. | GCM 9.1 |
+| KT-IV-03 | The query shall return the current invocation counter of a slot, so that the user can save it and, after any reset of the table (at power-up or a functional reset while the system keeps running), which erases the slot with its IV state (KT-MEM-02), load the slot with a counter beyond every value used with its key. | GCM 8, 9.1 |
 
 ### 2.4 Performance and fault tolerance
 
@@ -56,8 +56,9 @@ subkeys have no read path.
   limits it: the counter runs from its loaded value to 2<sup>64</sup> - 2, and the value 2<sup>64</sup> - 1 marks the
   slot as exhausted.
 - GCM 9.1 requires that the invocation field does not repeat after a loss of power. The table cannot keep state over
-  a power cycle; the user saves the counter from the query and loads the slot with a counter beyond every value that
-  was used.
+  a power cycle, and a functional reset (`Rst` asserted while the system keeps running) erases every slot with its IV
+  state in the same way. The user saves the counter from the query and, after any reset, loads the slot with a counter
+  beyond every value that was used with its key, so that no IV repeats with the same key (GCM 8).
 - Keys are never read back (GCM 5.1): the query returns the slot state only, and every job with an error carries
   zeros instead of the key and the hash subkey.
 
