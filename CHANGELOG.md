@@ -29,6 +29,8 @@ feature and a patch version for a fix.
   buffer (dense output) no longer passes the SECDED decoder, the logic behind it and the encoder of the next memory
   in one clock cycle. The key memories register their decoded word, and register stages follow the job FIFO and the
   data FIFO and precede the packer.
+- Documentation website: builds with Python-Markdown 3.11.3 (heading anchors hook takes the new optional argument;
+  markdown pinned).
 
 ## [0.1.0] - 2026-10-18
 
