@@ -26,6 +26,11 @@ in all six configurations: without the stage 1 term of the interlock and without
 TC-KT-03 to TC-KT-06 and TC-KT-09 fail as well), without the interlock of the loads (the write-back replaces the loaded
 IV word), and with the counter write-back assigned after the erasure (the erased slot 0 keeps a counter).
 
+Release 0.1.1, run on 2026-11-18 with Open Logic 4.8.0-ft.2: `ocr_key_table_tb` 65 of 65, full regression 447 of 447
+passed, 0 skipped, in GHDL 6.0.0 (mcode, CI job `simulation-ghdl`) and in QuestaSim Pro Microchip Edition 2024.3 with
+code coverage (`python run.py --questa --coverage -p 1`); the coverage is in
+[docs/coverage.md](../../../docs/coverage.md).
+
 ## 2. Summary
 
 All test cases pass; every requirement of the specification is covered (see the verification plan). Contexts are
@@ -45,7 +50,7 @@ Findings:
 | Code coverage: a query accepted in the cycle after another query was not answered (the response pulse of the first query cleared the pulse of the second) | The response pulse is cleared before it is set; TC-KT-02 sends queries in consecutive cycles and counts the answers (the old logic answers 6 of 11) |
 | Code coverage: a load requested during an erasure, a zeroize during a load and during context reads, an injection requested during a load and a double error in the job of a generated IV were not exercised | TC-KT-05 and TC-KT-07 extended |
 | The paced scrubbers (`ScrubPeriod_g` > 0) had never been simulated or synthesised, the documented range allowed periods below the resolution of 1 ms, and `KeyBits_g` was not checked | `k256_n4_paced` runs every test at 1 MHz with a scrub pass every 2 ms (the clock of the bench follows `ClkFreqHz_g`); `lint/synth_check.py` synthesises a period of 1 ms; range corrected; assertion KT-IF-06 |
-| Setup timing at 200 MHz on an AMD Versal device: a read went through the SECDED decoder, the context resolution, the scrubber multiplexer and the encoder of the next memory in one cycle | The memories register their decoded word; two read stages with the IV interlock and a job FIFO of five entries (TC-KT-09, TC-KT-11) |
+| Setup timing at 200 MHz on an AMD Versal device: a read went through the SECDED decoder, the context resolution, the scrubber multiplexer and the encoder of the next memory in one cycle | The memories register their decoded word; two read stages with the IV interlock and a job FIFO of five entries (TC-KT-09, TC-KT-11). Timing closure at 200 MHz is shown with the next implementation in a reference system of the family |
 | The erasure waited for the reads in flight, a condition that no test could make fail: the erasure writes take the write ports in the cycle of the last possible counter write-back | The wait is removed; the write port priority of the erasure is the guarantee, and TC-KT-11 fails when the priority is swapped |
 
 ## 3. Generic values
