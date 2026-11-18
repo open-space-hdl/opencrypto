@@ -7,8 +7,9 @@
 -- Description
 ---------------------------------------------------------------------------------------------------
 -- Context source model: sends one context per message of its vector set (direction, key slot, IV
--- source and IV) with random cycles without valid. Counts the cycles in which the receiver does not
--- accept a context (gaps); an abort (reset tests) drops the context in transfer.
+-- source and IV) with random cycles without valid and Pause cycles without valid after every context.
+-- Counts the cycles in which the receiver does not accept a context (gaps); an abort (reset tests)
+-- drops the context in transfer.
 --
 -- What this model does NOT check or reproduce: it does not check the handshake of the receiver beyond
 -- waiting for ready.
@@ -41,6 +42,8 @@ entity ocr_tb_ctx_source is
     );
     port (
         Clk         : in    std_logic;
+        -- Cycles without valid after every context
+        Pause       : in    natural := 0;
         Ctx_Valid   : out   std_logic;
         Ctx_Ready   : in    std_logic;
         Ctx_Decrypt : out   std_logic;
@@ -112,6 +115,11 @@ begin
                 OcrVec_v.addBeat(Set_g, Channel_g, now);
                 Ctx_Valid <= '0';
                 OcrVec_v.advance(Set_g, Channel_g);
+
+                for i in 1 to Pause loop
+                    wait until rising_edge(Clk);
+                end loop;
+
             end if;
         end loop;
 

@@ -139,11 +139,17 @@ architecture rtl of ocr_gcm is
     signal Dat_InValid   : std_logic;
     signal Dat_InReady   : std_logic;
     signal Dat_InData    : std_logic_vector(datWidth(DataWidth_g) - 1 downto 0);
+    signal DatF_Valid    : std_logic;
+    signal DatF_Ready    : std_logic;
+    signal DatF_Data     : std_logic_vector(datWidth(DataWidth_g) - 1 downto 0);
+    signal DatF_Ded      : std_logic;
+    signal Dat_Sec       : std_logic;
     signal Dat_OutValid  : std_logic;
     signal Dat_OutReady  : std_logic;
     signal Dat_OutData   : std_logic_vector(datWidth(DataWidth_g) - 1 downto 0);
-    signal Dat_Sec       : std_logic;
     signal Dat_Ded       : std_logic;
+    signal DatS_InData   : std_logic_vector(datWidth(DataWidth_g) downto 0);
+    signal DatS_OutData  : std_logic_vector(datWidth(DataWidth_g) downto 0);
     signal Req_Valid     : std_logic;
     signal Req_Ready     : std_logic;
     signal Req_Key       : std_logic_vector(KeyBits_g - 1 downto 0);
@@ -314,14 +320,36 @@ begin
             In_Data           => Dat_InData,
             In_Valid          => Dat_InValid,
             In_Ready          => Dat_InReady,
-            Out_Data          => Dat_OutData,
-            Out_Valid         => Dat_OutValid,
-            Out_Ready         => Dat_OutReady,
+            Out_Data          => DatF_Data,
+            Out_Valid         => DatF_Valid,
+            Out_Ready         => DatF_Ready,
             Out_EccSec        => Dat_Sec,
-            Out_EccDed        => Dat_Ded,
+            Out_EccDed        => DatF_Ded,
             In_ErrInj_BitFlip => inj(datWidth(DataWidth_g), ErrInj_Sel, GcmEccDat_c, ErrInj_BitFlip),
             In_ErrInj_Valid   => ErrInj_Valid
         );
+
+    -- Output register of the data FIFO: cuts the path from the RAM and the ECC decoder to the combiner; the double
+    -- error flag travels with its entry
+    DatS_InData <= DatF_Ded & DatF_Data;
+
+    i_dat_stage : entity olo.olo_base_pl_stage
+        generic map (
+            Width_g => datWidth(DataWidth_g) + 1
+        )
+        port map (
+            Clk       => Clk,
+            Rst       => Rst,
+            In_Valid  => DatF_Valid,
+            In_Ready  => DatF_Ready,
+            In_Data   => DatS_InData,
+            Out_Valid => Dat_OutValid,
+            Out_Ready => Dat_OutReady,
+            Out_Data  => DatS_OutData
+        );
+
+    Dat_Ded     <= DatS_OutData(datWidth(DataWidth_g));
+    Dat_OutData <= DatS_OutData(datWidth(DataWidth_g) - 1 downto 0);
 
     i_h_fifo : entity olo.olo_ft_fifo_sync
         generic map (
@@ -728,8 +756,8 @@ begin
     -----------------------------------------------------------------------------------------------
     -- ECC events: one pulse per entry read with a corrected (SEC) or uncorrectable (DED) error
     -----------------------------------------------------------------------------------------------
-    Ecc_Sec(GcmEccDat_c)  <= Dat_Sec and Dat_OutValid and Dat_OutReady;
-    Ecc_Ded(GcmEccDat_c)  <= Dat_Ded and Dat_OutValid and Dat_OutReady;
+    Ecc_Sec(GcmEccDat_c)  <= Dat_Sec and DatF_Valid and DatF_Ready;
+    Ecc_Ded(GcmEccDat_c)  <= DatF_Ded and DatF_Valid and DatF_Ready;
     Ecc_Sec(GcmEccKs_c)   <= Ks_Sec and Ks_Valid and Ks_Ready;
     Ecc_Ded(GcmEccKs_c)   <= Ks_Ded and Ks_Valid and Ks_Ready;
     Ecc_Sec(GcmEccJ0_c)   <= J0_Sec and J0_Valid and J0_Ready;

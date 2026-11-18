@@ -18,6 +18,17 @@ GHDL runs before 2026-10-14 passed one list of simulator flags to all simulation
 generics of every test to it), so a GHDL test could run with generics of an earlier test. QuestaSim was not
 affected. Since then every GHDL simulation has its own flags and `run.py` checks its generics.
 
+Run on 2026-10-20 with GHDL 6.0.0 (mcode), Open Logic 4.7.0-ft.9, after the register stages of the key table, of the
+data FIFO and in front of the packer: `ocr_core_tb` 73 of 73, full regression 447 of 447 passed, 0 skipped; the
+QuestaSim runs above predate the change. Changed figures of section 2: the decryption input has 6 cycles without a
+beat in every configuration (TC-CO-11, was 4: a job reaches the data path two cycles later), and the decryptions of
+400 bytes of TC-CO-15 take 1903 cycles at 32 bits and 913 cycles at 64 bits (was 1904 and 914). All other figures are
+unchanged.
+
+Release 0.1.1, run on 2026-11-18 with Open Logic 4.8.0-ft.2: `ocr_core_tb` 73 of 73, full regression 447 of 447 passed,
+0 skipped, in GHDL 6.0.0 (mcode, CI job `simulation-ghdl`) and in QuestaSim Pro Microchip Edition 2024.3 with code
+coverage (`python run.py --questa --coverage -p 1`); the coverage is in [docs/coverage.md](../../../docs/coverage.md).
+
 ## 2. Summary
 
 All test cases pass; every requirement of the specification is covered and every seam between the modules is crossed

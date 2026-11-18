@@ -46,8 +46,8 @@ is generated from `hdl/ocr_mib/regs/ocr_regs.yml` ([register map](register_map.m
 - GCM 5.1 requires the key to be secret. Keys enter the core only through the write-only staging registers, which
   clear themselves with the load, and no register reads a key or a hash subkey back.
 - GCM 9.1 requires the IV state to survive a loss of power. SLOT_COUNT returns the next invocation counter of a slot
-  for its backup; the user writes a counter beyond every used value into IV_COUNT before the load of the slot after a
-  power cycle.
+  for its backup; the user writes a counter beyond every used value into IV_COUNT before the load of the slot after
+  any reset of the core, at power-up or a functional reset while the system keeps running.
 
 ## 4. Configuration parameters
 

@@ -21,7 +21,7 @@ scrubbing).
 and has no flight heritage; see [what the levels mean](https://openspacehdl.org/trl/) and the next steps in the
 [roadmap](docs/roadmap.md#technology-readiness).
 
-The core is complete and verified in simulation (GHDL and QuestaSim, 80 test cases at unit and core level in 441 test
+The core is complete and verified in simulation (GHDL and QuestaSim, 81 test cases at unit and core level in 447 test
 runs over stream widths of 16 to 128 bits and all three key lengths, with the sectioned and the dense output and with
 the framer in front of the core; code coverage closed, the remaining misses justified in
 [docs/coverage.md](docs/coverage.md)). Every output byte is compared with the AES and AES-GCM
@@ -32,7 +32,8 @@ encrypts; modified tags, AAD and ciphertexts, format errors, wrong key slots and
 counters and injected double bit errors are detected and reported with their status. The bottleneck side of
 back-to-back messages transfers one beat per clock cycle after the initial latency. The
 [user guide](docs/user_guide.md) contains the conformance statement and the obligations that SP 800-38D leaves to the
-user. Synthesis results on a target device and a hardware test are open; see [docs/roadmap.md](docs/roadmap.md).
+user. Synthesis results on a target device and a hardware test as part of a reference system of the family are open;
+see [docs/roadmap.md](docs/roadmap.md).
 
 ## Documentation
 

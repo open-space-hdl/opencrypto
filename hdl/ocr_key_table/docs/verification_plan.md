@@ -7,7 +7,8 @@ checks every job: direction, key, hash subkey, IV, IV section flag, context erro
 served by an AES model that returns the hash subkey of the key from the vector files, computed with pycryptodome; it
 also counts the requests. The expected job of every context (error code, IV, generated IVs following the invocation
 counter of the slot) comes from the vector generator. The test sequencer queries slots, drives zeroize, reset and
-the error injection and counts the ECC events.
+the error injection and counts the ECC events; it sees the handshake of the context port and sets a number of pause
+cycles that the context source inserts after every context.
 
 ## 2. Test configuration
 
@@ -17,18 +18,19 @@ the error injection and counts the ECC events.
 
 | Configuration | Key | Slots | Tests |
 | --- | --- | --- | --- |
-| `k256_n4` | 256 | 4 | TC-KT-01 to TC-KT-10 |
-| `k128_n1` | 128 | 1 | TC-KT-01 to 05, 07 to 10 |
-| `k192_n3` | 192 | 3 (slot number of 2 bits with one slot out of range) | TC-KT-01 to TC-KT-10 |
-| `k256_n16` | 256 | 16 | TC-KT-01 to TC-KT-10 |
-| `k128_n256` | 128 | 256 | TC-KT-01 to TC-KT-10 |
-| `k256_n4_paced` | 256 | 4, paced scrubbers (`ClkFreqHz_g` 1.0e6, `ScrubPeriod_g` 0.002) | TC-KT-01 to TC-KT-10 |
+| `k256_n4` | 256 | 4 | TC-KT-01 to TC-KT-11 |
+| `k128_n1` | 128 | 1 | TC-KT-01 to 05, 07 to 11 |
+| `k192_n3` | 192 | 3 (slot number of 2 bits with one slot out of range) | TC-KT-01 to TC-KT-11 |
+| `k256_n16` | 256 | 16 | TC-KT-01 to TC-KT-11 |
+| `k128_n256` | 128 | 256 | TC-KT-01 to TC-KT-11 |
+| `k256_n4_paced` | 256 | 4, paced scrubbers (`ClkFreqHz_g` 1.0e6, `ScrubPeriod_g` 0.002) | TC-KT-01 to TC-KT-11 |
 
-Vector files per configuration: 300 contexts of loaded, unloaded and out-of-range slots in both directions with both
-IV sources (even slots generated IVs, odd slots external IVs); 40 contexts of an empty table; 12 contexts with
-generated IVs on a slot loaded with the counter 2<sup>64</sup> - 3; 300 contexts of all slots but the last for the
-loads during traffic; the error injection contexts; 100 contexts each with external and with generated IVs for the
-throughput. Simulator: GHDL; QuestaSim for code coverage.
+Vector files per configuration: 300 contexts of loaded, unloaded and out-of-range slots in both directions with both IV
+sources (even slots generated IVs, odd slots external IVs); 40 contexts of an empty table; 12 contexts with generated
+IVs on a slot loaded with the counter 2<sup>64</sup> - 3; 300 contexts of all slots but the last for the loads during
+traffic; the error injection contexts; 100 contexts each with external and with generated IVs for the throughput; 12
+encryptions with generated IVs of slot 0 and a second KEY record of slot 0 for the IV interlock. Simulator: GHDL;
+QuestaSim for code coverage.
 
 ## 3. Test cases
 
@@ -42,8 +44,9 @@ throughput. Simulator: GHDL; QuestaSim for code coverage.
 | `test_load_during_traffic` (TC-KT-06) | 20 loads of the last slot while 300 contexts of the other slots are resolved: every job and every counter correct | KT-LD-02 |
 | `test_ecc` (TC-KT-07) | Single and double errors injected into the key, H and IV word of a load and into a job: single errors give an OK job with an SEC event, double errors a job with ECC and zero key and H with a DED event, also for a job with a generated IV (no IV section flag); an injection requested during a load goes into the next load | KT-FT-01, KT-MEM-01 |
 | `test_scrub` (TC-KT-08) | Single error injected into the key word of a slot that no context reads: the scrubber corrects it with an SEC event; the next read has no error; with paced scrubbers within one scrub period | KT-FT-01, KT-MEM-01 |
-| `test_throughput` (TC-KT-09) | 100 contexts without stall cycles: N - 1 cycles from the first to the last context with external IVs, 2 (N - 1) cycles with generated IVs | KT-PF-01 |
+| `test_throughput` (TC-KT-09) | 100 contexts without stall cycles: N - 1 cycles from the first to the last context with external IVs, 3 (N - 1) cycles with generated IVs | KT-PF-01 |
 | `test_reset` (TC-KT-10) | Reset during a load, right after its acceptance and while it waits for the hash subkey: every slot is erased | KT-IF-05, KT-MEM-02 |
+| `test_iv_interlock` (TC-KT-11) | IV interlock with encryptions with generated IVs of slot 0: 12 contexts back to back and with pauses of 1 to 3 cycles, every job with the next invocation counter (IVs distinct and consecutive), afterwards the counter is the loaded value plus 12; a query offered 1 to 3 cycles after the cycle in which a context is read returns the counter after the context, a query offered in that cycle wins the read and returns the counter before it; a load of the slot 1 to 3 cycles after the context leaves the loaded fixed field and counter in the slot; a zeroize 0 to 3 cycles after the context erases every slot (valid flag, fixed field and counter zero) within `NumKeys_g` + 3 cycles, the job of the context passes | KT-IV-01, KT-IV-03, KT-LD-01, KT-MEM-02 |
 
 ## 4. Requirement coverage
 
@@ -56,14 +59,14 @@ throughput. Simulator: GHDL; QuestaSim for code coverage.
 | KT-IF-05 | TC-KT-10 |
 | KT-IF-06 | TC-KT-02 |
 | KT-MEM-01 | TC-KT-07, TC-KT-08 |
-| KT-MEM-02 | TC-KT-01, TC-KT-05, TC-KT-10 |
-| KT-LD-01 | TC-KT-02 |
+| KT-MEM-02 | TC-KT-01, TC-KT-05, TC-KT-10, TC-KT-11 |
+| KT-LD-01 | TC-KT-02, TC-KT-11 |
 | KT-LD-02 | TC-KT-06 |
 | KT-RS-01 | TC-KT-01, TC-KT-03, TC-KT-05 |
 | KT-RS-02 | TC-KT-03 |
-| KT-IV-01 | TC-KT-03 |
+| KT-IV-01 | TC-KT-03, TC-KT-11 |
 | KT-IV-02 | TC-KT-04 |
-| KT-IV-03 | TC-KT-02, TC-KT-03 |
+| KT-IV-03 | TC-KT-02, TC-KT-03, TC-KT-11 |
 | KT-PF-01 | TC-KT-09 |
 | KT-FT-01 | TC-KT-07, TC-KT-08 |
 

@@ -5,7 +5,9 @@
 ![Block diagram of ocr_gcm: input, combiner, GHASH, tag and output stages with the FIFOs between them, and the AES
 engine with the keystream and J0 FIFOs](img/ocr_gcm_arch.drawio.svg)
 
-All FIFOs are `olo_ft_fifo_sync` (SECDED); the release buffer is an `olo_ft_fifo_packet`.
+All FIFOs are `olo_ft_fifo_sync` (SECDED); the release buffer is an `olo_ft_fifo_packet`. An output register
+(`olo_base_pl_stage`) between the data FIFO and the combiner carries the entry and its double error flag, so that the
+read and ECC decoding of the FIFO and the combiner fall into different cycles.
 
 | Buffer | Entry | Depth |
 | --- | --- | --- |
@@ -52,12 +54,12 @@ message, while the combiner needs the keystream of the following messages.
 
 ## 4. Combiner (`ocr_gcm_combine`)
 
-One data FIFO entry per cycle. A DATA beat is XORed with lanes `K` · B to `K` · B + B - 1 of the keystream block at the
-head of the keystream FIFO (B bytes per beat), which is popped with `KsPop`. Lanes without byte enable are zero. A
-body beat goes to the output FIFO and to the hash FIFO (the ciphertext of a decryption is its input, of an encryption
-its result); a TAG beat fills the received tag; an entry with `NoBody` adds an empty body beat. The last entry of a
-message writes the summary (direction, rejection, format error, ECC error of the data and keystream FIFOs, received
-tag).
+One data FIFO entry per cycle, taken from the output register of the data FIFO. A DATA beat is XORed with lanes `K` · B
+to `K` · B + B - 1 of the keystream block at the head of the keystream FIFO (B bytes per beat), which is popped with
+`KsPop`. Lanes without byte enable are zero. A body beat goes to the output FIFO and to the hash FIFO (the ciphertext of
+a decryption is its input, of an encryption its result); a TAG beat fills the received tag; an entry with `NoBody` adds
+an empty body beat. The last entry of a message writes the summary (direction, rejection, format error, ECC error of the
+data and keystream FIFOs, received tag).
 
 ## 5. Tag stage (`ocr_gcm_tag`)
 

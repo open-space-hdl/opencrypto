@@ -6,10 +6,11 @@
 between them](img/ocr_core_arch.drawio.svg)
 
 The core contains no logic of its own: it connects the modules and resolves the generics. With `DenseOutput_g` the
-output packer (`ocr_packer`, OU-4) sits between the output of the data path and `M_Out`; without it the output of the
-data path is `M_Out`. `AesUnits_g` = 0
-and `GhashDigit_g` = 0 select the defaults of the width (`aesDefaultUnits`, `ghashDefaultDigit` of `ocr_pkg`), and
-the register file reports the values that the data path uses.
+output packer (`ocr_packer`, OU-4) sits between the output of the data path and `M_Out`, behind an input register
+(`olo_base_pl_stage`) that cuts the path from the output buffers of the data path to the packer; without it the output
+of the data path is `M_Out`. `AesUnits_g` = 0 and `GhashDigit_g` = 0 select the defaults of the width
+(`aesDefaultUnits`, `ghashDefaultDigit` of `ocr_pkg`), and the register file reports the values that the data path
+uses.
 
 | Connection | From | To | Content |
 | --- | --- | --- | --- |
@@ -20,7 +21,7 @@ the register file reports the values that the data path uses.
 | Status events | `ocr_gcm` | `ocr_mib` | Code and direction of every status |
 | ECC events | `ocr_gcm`, `ocr_key_table` | `ocr_mib` | Channels 0 to 10 (data path), 11 to 17 (key table) |
 | Error injection | `ocr_mib` | `ocr_gcm`, `ocr_key_table` | Target, pattern, valid |
-| Output messages | `ocr_gcm` | `ocr_packer` (`DenseOutput_g`) or `M_Out` | Sectioned output messages |
+| Output messages | `ocr_gcm` | `ocr_packer` through its input register (`DenseOutput_g`) or `M_Out` | Sectioned output messages |
 
 ## 2. Clock, reset and start-up
 
