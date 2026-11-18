@@ -4,7 +4,10 @@ The notable changes of OpenCrypto. The versions follow semantic versioning: 0.y.
 major version for an incompatible change of ports, stream formats, generics or register map, a minor version for a
 feature and a patch version for a fix.
 
-## [Unreleased]
+## [0.1.1] - 2026-11-18
+
+A patch release: register stages on the memory read paths for setup timing at 200 MHz, and Open Logic 4.8.0-ft.2.
+The ports, generics, stream formats and the register map are those of 0.1.0.
 
 ### Changed
 
