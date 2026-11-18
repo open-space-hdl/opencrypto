@@ -22,6 +22,10 @@ Run on 2026-10-20 with GHDL 6.0.0 (mcode), Open Logic 4.7.0-ft.9, with the outpu
 `ocr_gcm_tb` 142 of 142, full regression 447 of 447 passed, 0 skipped; every figure of section 2 is unchanged. The
 QuestaSim runs above predate the change.
 
+Release 0.1.1, run on 2026-11-18 with Open Logic 4.8.0-ft.2: `ocr_gcm_tb` 142 of 142, full regression 447 of 447 passed,
+0 skipped, in GHDL 6.0.0 (mcode, CI job `simulation-ghdl`) and in QuestaSim Pro Microchip Edition 2024.3 with code
+coverage (`python run.py --questa --coverage -p 1`); the coverage is in [docs/coverage.md](../../../docs/coverage.md).
+
 ## 2. Summary
 
 All test cases pass; every requirement of the specification is covered (see the verification plan). Every output byte of

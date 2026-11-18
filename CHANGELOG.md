@@ -29,10 +29,12 @@ The ports, generics, stream formats and the register map are those of 0.1.0.
 
 ### Fixed
 
-- Setup timing at 200 MHz on AMD Versal devices: the read of a key memory, the job FIFO, the data FIFO or the release
-  buffer (dense output) no longer passes the SECDED decoder, the logic behind it and the encoder of the next memory
-  in one clock cycle. The key memories register their decoded word, and register stages follow the job FIFO and the
-  data FIFO and precede the packer.
+- Register stages for setup timing at 200 MHz on AMD Versal devices: an implementation at 200 MHz missed setup timing
+  where the read of a key memory, the job FIFO, the data FIFO or the release buffer (dense output) passed the SECDED
+  decoder, the logic behind it and the encoder of the next memory in one clock cycle. The key memories now register
+  their decoded word, and register stages follow the job FIFO and the data FIFO and precede the packer. This release
+  has no implementation result at 200 MHz; timing closure at 200 MHz will be shown with the next implementation in a
+  reference system of the family.
 - Documentation website: builds with Python-Markdown 3.11.3 (heading anchors hook takes the new optional argument;
   markdown pinned).
 
