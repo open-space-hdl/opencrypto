@@ -8,7 +8,8 @@ feature and a patch version for a fix.
 
 ### Changed
 
-- Open Logic 4.7.0-ft.9 (from 4.7.0-ft.6); no port or generic of OpenCrypto changes.
+- Open Logic 4.8.0-ft.2 (1f4a6c3), based on Open Logic 4.8.0 (from 4.7.0-ft.6). The Open Logic sources that
+  OpenCrypto uses are identical in both tags, so no port, generic or behaviour of OpenCrypto changes through the pin.
 - The key table resolves one context with a generated IV per three clock cycles (was two); contexts with external IVs
   stay at one per clock cycle. Up to seven resolved contexts wait in the key table (job FIFO of five entries, was
   four, and its output register of two).
