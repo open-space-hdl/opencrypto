@@ -18,6 +18,11 @@ GHDL runs before 2026-10-14 passed one list of simulator flags to all simulation
 generics of every test to it), so a GHDL test could run with generics of an earlier test. QuestaSim was not
 affected. Since then every GHDL simulation has its own flags and `run.py` checks its generics.
 
+Release 0.1.1, run on 2026-11-18 with Open Logic 4.8.0-ft.2: `ocr_packer_tb` 16 of 16, full regression 447 of 447
+passed, 0 skipped, in GHDL 6.0.0 (mcode, CI job `simulation-ghdl`) and in QuestaSim Pro Microchip Edition 2024.3 with
+code coverage (`python run.py --questa --coverage -p 1`); the coverage is in
+[docs/coverage.md](../../../docs/coverage.md).
+
 ## 2. Summary
 
 All test cases pass; every requirement of the specification is covered (see the verification plan). The packer behind
